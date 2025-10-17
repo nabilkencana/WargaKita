@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter_latihan1/profile_page.dart';
 import 'package:flutter_latihan1/sos_page.dart';
 import 'package:image_picker/image_picker.dart';
@@ -15,6 +16,7 @@ class LaporanPage extends StatefulWidget {
 class _LaporanPageState extends State<LaporanPage> {
   String? selectedReport = "Sampah Menumpuk";
   File? _selectedImage;
+  final TextEditingController _descController = TextEditingController();
 
   // 🔹 Fungsi untuk pilih gambar
   Future<void> _pickImage() async {
@@ -27,11 +29,11 @@ class _LaporanPageState extends State<LaporanPage> {
     }
   }
 
-  // 🔹 Fungsi untuk kirim laporan
+  // 🔹 Fungsi untuk kirim laporan + reset otomatis
   void _showSuccessDialog(BuildContext context) {
     showDialog(
       context: context,
-      barrierDismissible: false, // agar tidak tertutup jika diklik di luar
+      barrierDismissible: false,
       builder: (context) {
         return Dialog(
           shape: RoundedRectangleBorder(
@@ -53,7 +55,6 @@ class _LaporanPageState extends State<LaporanPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // Teks utama
                 const Text(
                   "Laporan Anda Sudah Terkirim",
                   textAlign: TextAlign.center,
@@ -65,7 +66,6 @@ class _LaporanPageState extends State<LaporanPage> {
                 ),
                 const SizedBox(height: 32),
 
-                // Tombol merah
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -76,7 +76,16 @@ class _LaporanPageState extends State<LaporanPage> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      Navigator.pop(context); // Tutup dialog
+
+                      // 🔹 Reset semua inputan setelah laporan dikirim
+                      setState(() {
+                        selectedReport = "Sampah Menumpuk";
+                        _descController.clear();
+                        _selectedImage = null;
+                      });
+                    },
                     child: const Text(
                       "Ketuk untuk Tutup",
                       style: TextStyle(
@@ -230,15 +239,17 @@ class _LaporanPageState extends State<LaporanPage> {
                   border: Border.all(color: Colors.blue.shade300),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const TextField(
+                child: TextField(
+                  controller: _descController,
                   maxLines: 4,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: "Tumpukan sampah di pos ronda...",
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.all(10),
                   ),
                 ),
               ),
+
               const SizedBox(height: 16),
 
               // 🔸 Lampiran
@@ -342,59 +353,86 @@ class DottedBorderBox extends StatefulWidget {
 }
 
 class _DottedBorderBoxState extends State<DottedBorderBox> {
-  File? _image;
+  File? _selectedImage;
 
-  // Fungsi untuk pilih gambar dari galeri
+  // 🔹 Fungsi untuk pilih gambar
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
     if (pickedFile != null) {
       setState(() {
-        _image = File(pickedFile.path);
+        _selectedImage = File(pickedFile.path);
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    _image = widget.image;
+    final File? displayedImage = widget.image ?? _selectedImage;
+
     return GestureDetector(
-      onTap: _pickImage, // 👈 tekan untuk pilih gambar
+      onTap: _pickImage,
       child: Container(
-        child: Container(
-          width: double.infinity,
-          height: 120,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.blue.shade200, width: 1.2),
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.blue.withOpacity(0.03),
-          ),
-          child: Center(
-            child: _image == null
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(
-                        Icons.add_photo_alternate_outlined,
-                        color: Colors.blue,
-                        size: 30,
-                      ),
-                      SizedBox(height: 4),
-                      Text("Gambar", style: TextStyle(color: Colors.blueGrey)),
-                    ],
-                  )
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.file(
-                      _image!,
-                      fit: BoxFit.cover,
-                      width: 100,
-                      height: 100,
+        width: double.infinity,
+        height: 180,
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF3FF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF007BFF), width: 1.5),
+        ),
+        child: displayedImage == null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.upload_file, color: Color(0xFF007BFF), size: 50),
+                  SizedBox(height: 10),
+                  Text(
+                    "Klik untuk upload foto",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-          ),
-        ),
+                ],
+              )
+            : Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      displayedImage,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
+                  ),
+                  // Tombol ubah foto
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: ElevatedButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text(
+                        "Ubah Foto",
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black.withOpacity(0.6),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

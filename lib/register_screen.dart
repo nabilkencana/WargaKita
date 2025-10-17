@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_latihan1/social_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -10,27 +12,62 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   bool agree = false;
-  final TextEditingController nameController = TextEditingController(
-    text: "",
-  );
-  final TextEditingController nikController = TextEditingController(
-    text: "",
-  );
-  DateTime? selectedDate = DateTime(1992, 5, 12);
-  String? selectedCity = "Kedungkandang, Malang";
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController nikController = TextEditingController();
+  DateTime? selectedDate;
+  String? selectedCity;
+  File? uploadedFile;
 
+  // 📅 Pilih tanggal lahir
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: selectedDate ?? DateTime.now(),
+      initialDate: selectedDate ?? DateTime(2000),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
-    if (picked != null && picked != selectedDate) {
+    if (picked != null) {
+      setState(() => selectedDate = picked);
+    }
+  }
+
+  // 📂 Pilih file dari storage
+  Future<void> _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+    );
+
+    if (result != null) {
       setState(() {
-        selectedDate = picked;
+        uploadedFile = File(result.files.single.path!);
       });
     }
+  }
+
+  // 🔍 Validasi apakah semua field terisi
+  bool get isFormValid {
+    return nameController.text.isNotEmpty &&
+        nikController.text.isNotEmpty &&
+        selectedDate != null &&
+        selectedCity != null &&
+        agree;
+  }
+
+  // 🔁 Update tombol setiap kali field berubah
+  void _updateState() => setState(() {});
+
+  @override
+  void initState() {
+    super.initState();
+    nameController.addListener(_updateState);
+    nikController.addListener(_updateState);
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    nikController.dispose();
+    super.dispose();
   }
 
   @override
@@ -40,10 +77,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         pageBuilder: (context, animation, secondaryAnimation) =>
             const SocialScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0); // dari kanan ke kiri
+          const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
           const curve = Curves.easeInOut;
-
           final tween = Tween(
             begin: begin,
             end: end,
@@ -59,15 +95,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // 🔹 Tambahkan AppBar dengan tombol kembali
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
-          onPressed: () {
-            Navigator.pop(context); // kembali ke halaman main.dart
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           "Info Profile",
@@ -75,23 +108,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         centerTitle: true,
       ),
-
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Logo dan judul
+              // 🔹 Header
               Row(
-                children: [
-                  const Icon(
-                    Icons.house_rounded,
-                    color: Color(0xFF0066FF),
-                    size: 40,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
+                children: const [
+                  Icon(Icons.house_rounded, color: Color(0xFF0066FF), size: 40),
+                  SizedBox(width: 8),
+                  Text(
                     "WARGA KITA",
                     style: TextStyle(
                       color: Color(0xFF0066FF),
@@ -103,7 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Progress indicator
+              // 🔹 Step Indicator
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -114,7 +142,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Info Profile
               const Center(
                 child: Text(
                   "Info Profile",
@@ -135,15 +162,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Checkbox
+              // 🔹 Checkbox
               Row(
                 children: [
                   Checkbox(
                     activeColor: const Color(0xFF0066FF),
                     value: agree,
-                    onChanged: (v) {
-                      setState(() => agree = v ?? false);
-                    },
+                    onChanged: (v) => setState(() => agree = v ?? false),
                   ),
                   const Text("Saya setuju dengan "),
                   GestureDetector(
@@ -160,7 +185,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const Divider(height: 32, thickness: 1),
 
-              // Data Pribadi
+              // 🔹 Form
               const Text(
                 "Data Pribadi",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -171,47 +196,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Nama Lengkap
-              AnimatedOpacity(
-                opacity: 1,
-                duration: const Duration(milliseconds: 500),
-                child: TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: "Nama Lengkap",
-                    labelStyle: TextStyle(color: Colors.grey),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                        color: Color(0xFF0066FF),
-                        width: 2,
-                      ),
-                    ),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: "Nama Lengkap",
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF0066FF), width: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 15),
 
-              // Nama Lengkap
-              AnimatedOpacity(
-                opacity: 1,
-                duration: const Duration(milliseconds: 500),
-                child: TextField(
-                  controller: nikController,
-                  decoration: const InputDecoration(
-                    labelText: "NIK",
-                    labelStyle: TextStyle(color: Colors.grey),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                        color: Color(0xFF0066FF),
-                        width: 2,
-                      ),
-                    ),
+              TextField(
+                controller: nikController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "NIK",
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF0066FF), width: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 15),
 
-              // Tanggal Lahir
               const Text("Tanggal Lahir"),
               GestureDetector(
                 onTap: () => _selectDate(context),
@@ -231,10 +238,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Tempat Lahir
               const Text("Tempat Lahir"),
               DropdownButtonFormField<String>(
-                initialValue: selectedCity,
+                value: selectedCity,
                 items: const [
                   DropdownMenuItem(
                     value: "Kedungkandang, Malang",
@@ -249,9 +255,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Text("Blimbing, Malang"),
                   ),
                 ],
-                onChanged: (v) {
-                  setState(() => selectedCity = v);
-                },
+                onChanged: (v) => setState(() => selectedCity = v),
                 decoration: const InputDecoration(
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -261,7 +265,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Upload Foto KK
+              // 🔹 Upload Foto KK
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -270,25 +274,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        "Upload Foto KK",
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                        uploadedFile == null
+                            ? "Upload Foto KK"
+                            : "Foto KK: ${uploadedFile!.path.split('/').last}",
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: _pickFile,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0066FF),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      icon: const Icon(
-                        Icons.upload,
-                        size: 18,
-                        color: Colors.white,
-                      ),
+                      icon: const Icon(Icons.upload, color: Colors.white),
                       label: const Text(
                         "Upload",
                         style: TextStyle(color: Colors.white),
@@ -299,18 +302,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Tombol lanjut
+              // 🔹 Tombol lanjut
               Center(
                 child: SizedBox(
                   width: 180,
                   height: 48,
                   child: OutlinedButton.icon(
-                    onPressed: agree
-                        ? () {
-                            Navigator.of(context).push(createRoute());
-                          }
+                    onPressed: isFormValid
+                        ? () => Navigator.of(context).push(createRoute())
                         : null,
                     style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: isFormValid
+                            ? const Color(0xFF0066FF)
+                            : Colors.grey,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
