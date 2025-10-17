@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_latihan1/laporanpage.dart';
+import 'package:flutter_latihan1/profile_page.dart';
+import 'package:flutter_latihan1/sos_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -9,13 +11,13 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // Bottom navigation bar
+      // 🔹 Bottom navigation bar
       bottomNavigationBar: Container(
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         height: 80,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.85),
+          color: Colors.white.withOpacity(0.9),
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -28,11 +30,42 @@ class HomePage extends StatelessWidget {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: const [
-            _NavItem(icon: Icons.home_rounded, label: "Home", active: true),
-            _NavItem(icon: Icons.event_rounded, label: "Kegiatan"),
-            _NavItem(icon: Icons.menu_book_rounded, label: "Agenda"),
-            _NavItem(icon: Icons.person_rounded, label: "Profil"),
+          children: [
+            const _NavItem(
+              icon: Icons.home_rounded,
+              label: "Home",
+              active: true,
+            ),
+            _NavItem(
+              icon: Icons.report_rounded,
+              label: "Laporan",
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LaporanPage()),
+                );
+              },
+            ),
+            _NavItem(
+              icon: Icons.sos_rounded,
+              label: "Darurat",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SOSPage()),
+                );
+              },
+            ),
+              _NavItem(
+              icon: Icons.person_rounded,
+              label: "Profil",
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -338,24 +371,27 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
+  final VoidCallback? onTap;
 
   const _NavItem({
     required this.icon,
     required this.label,
     this.active = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (label == "Kegiatan") {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const LaporanPage()),
-          );
-        }
-      },
+      onTap: onTap ??
+          () {
+            if (label == "Kegiatan") {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LaporanPage()),
+              );
+            }
+          },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
