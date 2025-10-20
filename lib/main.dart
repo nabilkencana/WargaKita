@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_latihan1/homepage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'register_screen.dart';
-
 
 void main() {
   runApp(const LoginApp());
@@ -28,6 +29,32 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool rememberMe = false;
   final TextEditingController emailController = TextEditingController();
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  Future<void> _handleGoogleSignIn() async {
+    try {
+      final account = await _googleSignIn.signIn();
+      if (account != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }
+    } catch (error) {
+      print("Error login Google: $error");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal login dengan Google')));
+    }
+  }
+
+  void _handleLogin() {
+    // Disini bisa tambahkan validasi email/password
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomePage()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity,
                       height: 50,
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: _handleGoogleSignIn,
                         icon: Image.network(
                           'https://upload.wikimedia.org/wikipedia/commons/0/09/IOS_Google_icon.png',
                           height: 22,
@@ -191,12 +218,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // 🔹 Tombol Masuk (Animated)
+                    // 🔹 Tombol Masuk
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: _handleLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF007BFF),
                           shape: RoundedRectangleBorder(

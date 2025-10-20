@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_latihan1/laporanpage.dart';
 import 'package:flutter_latihan1/profile_page.dart';
-import 'homepage.dart'; // Sesuaikan path sesuai proyekmu// biar tombol "Laporan" bisa navigasi balik
+import 'homepage.dart'; // Sesuaikan path sesuai proyekmu
 
 class SOSPage extends StatefulWidget {
   const SOSPage({super.key});
@@ -13,82 +13,20 @@ class SOSPage extends StatefulWidget {
 class _SOSPageState extends State<SOSPage> {
   bool needVolunteer = false;
   bool isPressed = false;
+  String emergencyType = 'Kecelakaan'; // default
+  final TextEditingController detailController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
-      // 🔹 Bottom navigation bar (SAMA seperti di LaporanPage)
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.15),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: Colors.blue.withOpacity(0.1)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NavItem(
-              icon: Icons.home_rounded,
-              label: "Home",
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                );
-              },
-            ),
-            _NavItem(
-              icon: Icons.report_rounded,
-              label: "Laporan",
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LaporanPage()),
-                );
-              },
-            ),
-            const _NavItem(
-              icon: Icons.sos_rounded,
-              label: "Darurat",
-              active: true,
-            ),
-            _NavItem(
-              icon: Icons.person_rounded,
-              label: "Profil",
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfilePage()),
-                );
-              },
-            ),
-
-          ],
-        ),
-      ),
-
-      // 🔹 Body utama
+      bottomNavigationBar: _buildBottomNavBar(context),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 20),
-
-              // Judul & instruksi
               const Text(
                 "Apakah kamu\nbutuh bantuan?",
                 textAlign: TextAlign.center,
@@ -99,26 +37,41 @@ class _SOSPageState extends State<SOSPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text.rich(
-                TextSpan(
-                  text: "pencet ",
-                  style: TextStyle(color: Colors.black54),
-                  children: [
-                    TextSpan(
-                      text: "tombol sos 3 detik ",
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    TextSpan(
-                      text: ", untuk meminta bantuan terdekat dari lokasi mu !",
-                    ),
-                  ],
-                ),
+              const Text(
+                "Tekan tombol SOS 3 detik untuk meminta bantuan terdekat dari lokasi mu!",
                 textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54),
               ),
-              const SizedBox(height: 60),
+              const SizedBox(height: 40),
+
+              // Pilih jenis darurat
+              DropdownButtonFormField<String>(
+                value: emergencyType,
+                decoration: InputDecoration(
+                  labelText: "Jenis Darurat",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                items: ['Kecelakaan', 'Kebakaran', 'Kesehatan', 'Kejadian Lain']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (val) => setState(() => emergencyType = val!),
+              ),
+              const SizedBox(height: 16),
+
+              // Input detail
+              TextField(
+                controller: detailController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: "Tambahkan detail kejadian (opsional)",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
 
               // 🔴 Tombol SOS besar
               GestureDetector(
@@ -154,44 +107,27 @@ class _SOSPageState extends State<SOSPage> {
                         color: Colors.white,
                         fontSize: 42,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
                       ),
                     ),
                   ),
                 ),
               ),
+              const SizedBox(height: 30),
 
-              const SizedBox(height: 50),
-
-              // 🔘 Switch Butuh Relawan
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Butuh Relawan",
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Switch(
-                      activeColor: Colors.red,
-                      value: needVolunteer,
-                      onChanged: (value) {
-                        setState(() {
-                          needVolunteer = value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
+              // Switch Butuh Relawan
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Butuh Relawan",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Switch(
+                    activeColor: Colors.red,
+                    value: needVolunteer,
+                    onChanged: (value) => setState(() => needVolunteer = value),
+                  ),
+                ],
               ),
             ],
           ),
@@ -200,7 +136,62 @@ class _SOSPageState extends State<SOSPage> {
     );
   }
 
-  // 🔹 Pop-up setelah SOS terkirim
+  // 🔹 Bottom Navigation
+  Widget _buildBottomNavBar(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.blue.withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _NavItem(
+            icon: Icons.home_rounded,
+            label: "Home",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            ),
+          ),
+          _NavItem(
+            icon: Icons.report_rounded,
+            label: "Laporan",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LaporanPage()),
+            ),
+          ),
+          const _NavItem(
+            icon: Icons.sos_rounded,
+            label: "Darurat",
+            active: true,
+          ),
+          _NavItem(
+            icon: Icons.person_rounded,
+            label: "Profil",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🔹 Dialog SOS terkirim
   void _showSentDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -210,21 +201,21 @@ class _SOSPageState extends State<SOSPage> {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.check_circle, color: Colors.green, size: 60),
-              SizedBox(height: 20),
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 60),
+              const SizedBox(height: 20),
               Text(
                 "Sinyal Darurat Terkirim!",
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               Text(
-                "Relawan dan petugas terdekat akan segera menuju lokasi kamu.",
+                "Jenis: $emergencyType\nDetail: ${detailController.text}\nRelawan: ${needVolunteer ? 'Ya' : 'Tidak'}",
                 textAlign: TextAlign.center,
               ),
             ],
@@ -239,7 +230,7 @@ class _SOSPageState extends State<SOSPage> {
   }
 }
 
-// 🔹 Widget navigasi bawah (sama seperti di laporan page)
+// 🔹 Bottom navigation item
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;

@@ -10,73 +10,13 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-
-      // 🔹 NAVBAR BAWAH (sama seperti di SOSPage)
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.15),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: Colors.blue.withOpacity(0.1)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NavItem(
-              icon: Icons.home_rounded,
-              label: "Home",
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                );
-              },
-            ),
-            _NavItem(
-              icon: Icons.report_rounded,
-              label: "Laporan",
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LaporanPage()),
-                );
-              },
-            ),
-            _NavItem(
-              icon: Icons.sos_rounded,
-              label: "Darurat",
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SOSPage()),
-                );
-              },
-            ),
-            const _NavItem(
-              icon: Icons.person_rounded,
-              label: "Profil",
-              active: true,
-            ),
-          ],
-        ),
-      ),
-
-      // 🔹 BODY PROFIL
+      bottomNavigationBar: _buildBottomNavBar(context),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding:  const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Column(
             children: [
-              // 🔵 Header Profil
+              // Header Profil
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -113,25 +53,29 @@ class ProfilePage extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 24),
 
-              // 🔹 Bagian Pengaturan Akun
+              // Bagian Akun
               _buildSection(
+                context,
                 title: "Akun Saya",
                 items: [
                   _ProfileItem(
                     icon: Icons.person_outline_rounded,
-                    label: "Data diri saya",
+                    label: "Data Diri Saya",
                     subtitle: "Ketuk untuk mengganti data diri Anda",
                     alert: true,
-                    onTap: () {},
+                    onTap: () {
+                      _showEditDialog(context, "Data Diri Saya");
+                    },
                   ),
                   _ProfileItem(
                     icon: Icons.settings_outlined,
                     label: "Kelola Akun",
-                    subtitle: "Kelola akun yang disimpan Anda",
-                    onTap: () {},
+                    subtitle: "Kelola akun yang tersimpan",
+                    onTap: () {
+                      _showEditDialog(context, "Kelola Akun");
+                    },
                   ),
                   _ProfileItem(
                     icon: Icons.fingerprint_rounded,
@@ -142,35 +86,44 @@ class ProfilePage extends StatelessWidget {
                   _ProfileItem(
                     icon: Icons.verified_user_outlined,
                     label: "Autentifikasi 2 Faktor",
-                    subtitle:
-                        "Amankan akun Anda lebih lanjut untuk keselamatan",
-                    onTap: () {},
+                    subtitle: "Amankan akun Anda lebih lanjut",
+                    onTap: () {
+                      _showEditDialog(context, "Autentifikasi 2 Faktor");
+                    },
                   ),
                   _ProfileItem(
                     icon: Icons.logout_rounded,
                     label: "Keluar",
-                    subtitle:
-                        "Amankan akun Anda lebih lanjut untuk keselamatan",
-                    onTap: () {},
+                    subtitle: "Keluar dari akun Anda",
+                    onTap: () {
+                      _showLogoutDialog(context);
+                    },
                   ),
                 ],
               ),
 
               const SizedBox(height: 20),
 
-              // 🔹 Bagian Lainnya
+              // Bagian Lainnya
               _buildSection(
+                context,
                 title: "Lainnya",
                 items: [
                   _ProfileItem(
                     icon: Icons.help_outline_rounded,
                     label: "Bantuan & Dukungan",
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Menu Bantuan diklik")),
+                      );
+                    },
                   ),
                   _ProfileItem(
                     icon: Icons.info_outline_rounded,
                     label: "Tentang Aplikasi",
-                    onTap: () {},
+                    onTap: () {
+                      _showEditDialog(context, "Tentang Aplikasi");
+                    },
                   ),
                 ],
               ),
@@ -181,8 +134,65 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 🔸 Bagian Section Helper
-  Widget _buildSection({required String title, required List<Widget> items}) {
+  Widget _buildBottomNavBar(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.blue.withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _NavItem(
+            icon: Icons.home_rounded,
+            label: "Home",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            ),
+          ),
+          _NavItem(
+            icon: Icons.report_rounded,
+            label: "Laporan",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LaporanPage()),
+            ),
+          ),
+          _NavItem(
+            icon: Icons.sos_rounded,
+            label: "Darurat",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const SOSPage()),
+            ),
+          ),
+          const _NavItem(
+            icon: Icons.person_rounded,
+            label: "Profil",
+            active: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context, {
+    required String title,
+    required List<Widget> items,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -205,9 +215,63 @@ class ProfilePage extends StatelessWidget {
       ],
     );
   }
+
+  void _showEditDialog(BuildContext context, String fieldName) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Edit $fieldName"),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(hintText: "Masukkan $fieldName"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("$fieldName berhasil diupdate!")),
+              );
+            },
+            child: const Text("Simpan"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Keluar"),
+        content: const Text("Apakah Anda yakin ingin keluar?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Anda telah logout")),
+              );
+            },
+            child: const Text("Keluar"),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-// 🔹 Widget item di dalam menu profil
+// Profile Item & NavItem sama seperti sebelumnya
 class _ProfileItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -250,7 +314,6 @@ class _ProfileItem extends StatelessWidget {
   }
 }
 
-// 🔹 NAVBAR ITEM (sama persis dari SOSPage)
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
