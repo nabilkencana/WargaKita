@@ -165,7 +165,7 @@ class _SocialScreenState extends State<SocialScreen> {
                       Icons.camera_alt_outlined,
                       color: Colors.black54,
                     ),
-                    labelText: "Instagram",
+                    labelText: "Instagram (Opsional)",
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -175,7 +175,7 @@ class _SocialScreenState extends State<SocialScreen> {
                   controller: facebookController,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.facebook, color: Colors.black54),
-                    labelText: "Facebook",
+                    labelText: "Facebook (Opsional)",
                     border: OutlineInputBorder(),
                   ),
                 ),

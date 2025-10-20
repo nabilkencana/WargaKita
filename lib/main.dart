@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'register_screen.dart';
 
+
 void main() {
   runApp(const LoginApp());
 }
@@ -35,13 +36,13 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 🔹 Bagian atas dengan gradient biru
+            // 🔹 Bagian atas dengan gradient lembut + ilustrasi
             Container(
               width: double.infinity,
-              height: 300,
+              height: 340,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF0066FF), Color(0xFF338AFF)],
+                  colors: [Color(0xFF007BFF), Color(0xFF5AC8FA)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -52,53 +53,71 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.home_rounded, color: Colors.white, size: 70),
-                  SizedBox(height: 20),
-                  Text(
-                    "Masuk ke Akun Anda",
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                children: [
+                  const SizedBox(height: 40),
+                  Center(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/images/Vector.png',
+                        height: 140,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Padding(
+                  const SizedBox(height: 25),
+                  const Text(
+                    "Selamat Datang Kembali!",
+                    style: TextStyle(
+                      fontSize: 26,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
-                      "Masukkan dengan Email atau daftarkan akun anda",
+                      "Masuk ke akun Anda untuk melanjutkan",
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // 🔸 Card Form Login
+            // 🔸 Card Login (Glassmorphism style)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 28,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5),
+                      color: Colors.blue.withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
                 child: Column(
                   children: [
-                    // Tombol Google
+                    // 🔘 Login Google
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -109,73 +128,82 @@ class _LoginScreenState extends State<LoginScreen> {
                           height: 22,
                         ),
                         label: const Text(
-                          "Lanjutkan dengan Google",
+                          "Masuk dengan Google",
                           style: TextStyle(
                             color: Colors.black87,
                             fontWeight: FontWeight.w600,
+                            fontSize: 15,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
                           backgroundColor: Colors.white,
                           side: const BorderSide(color: Colors.grey),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          shadowColor: Colors.black12,
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
                     const Text(
-                      "Atau login menggunakan",
+                      "atau masuk menggunakan email",
                       style: TextStyle(color: Colors.black54, fontSize: 13),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
 
-                    // Input Email
+                    // 📩 Input Email
                     TextField(
                       controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         hintText: "Email Anda",
                         filled: true,
                         fillColor: const Color(0xFFF5F7FA),
-                        prefixIcon: const Icon(Icons.email_outlined,
-                            color: Colors.grey),
+                        prefixIcon: const Icon(
+                          Icons.email_outlined,
+                          color: Colors.grey,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 10),
 
-                    // Ingat Saya
+                    // 🔘 Ingat saya
                     Row(
                       children: [
                         Checkbox(
-                          activeColor: const Color(0xFF0066FF),
+                          activeColor: const Color(0xFF007BFF),
                           value: rememberMe,
                           onChanged: (val) =>
                               setState(() => rememberMe = val ?? false),
                         ),
-                        const Text("Ingat saya"),
+                        const Text(
+                          "Ingat saya",
+                          style: TextStyle(fontSize: 14),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
 
-                    // Tombol Masuk
+                    // 🔹 Tombol Masuk (Animated)
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
                         onPressed: () {},
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0066FF),
+                          backgroundColor: const Color(0xFF007BFF),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          shadowColor: Colors.blueAccent.withOpacity(0.4),
-                          elevation: 5,
+                          elevation: 6,
+                          shadowColor: Colors.blueAccent.withOpacity(0.5),
                         ),
                         child: const Text(
                           "Masuk",
@@ -183,14 +211,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
 
-                    // Tombol Daftar
+                    // 🔹 Tombol Daftar
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -204,16 +233,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           );
                         },
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF0066FF)),
+                          side: const BorderSide(color: Color(0xFF007BFF)),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         child: const Text(
-                          "Daftar",
+                          "Daftar Akun Baru",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0066FF),
+                            color: Color(0xFF007BFF),
+                            fontSize: 15,
                           ),
                         ),
                       ),
@@ -221,16 +251,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Teks bawah
+                    // 🔸 Teks bawah
                     const Text.rich(
                       TextSpan(
-                        text: "Tidak mempunyai Akun? ",
+                        text: "Belum punya akun? ",
                         style: TextStyle(color: Colors.black54),
                         children: [
                           TextSpan(
                             text: "Daftar Sekarang!",
                             style: TextStyle(
-                              color: Color(0xFF0066FF),
+                              color: Color(0xFF007BFF),
                               fontWeight: FontWeight.bold,
                             ),
                           ),

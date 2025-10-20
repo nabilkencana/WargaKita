@@ -50,6 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         nikController.text.isNotEmpty &&
         selectedDate != null &&
         selectedCity != null &&
+        uploadedFile != null && 
         agree;
   }
 
