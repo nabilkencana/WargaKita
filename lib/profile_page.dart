@@ -1,198 +1,186 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_latihan1/sos_page.dart';
 import 'homepage.dart';
 import 'laporanpage.dart';
+import 'sos_page.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  bool darkMode = false;
+  bool faceIdEnabled = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: darkMode ? Colors.grey[900] : const Color(0xFFF5F7FA),
       bottomNavigationBar: _buildBottomNavBar(context),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          child: Column(
-            children: [
-              // Header Profil
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0066FF),
-                  borderRadius: BorderRadius.circular(16),
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 24),
+
+            _buildSection(
+              title: "Akun Saya",
+              items: [
+                _buildTile(
+                  icon: Icons.person_outline_rounded,
+                  label: "Edit Profil",
+                  subtitle: "Perbarui data pribadi dan foto Anda",
+                  onTap: () => _openEditProfile(context),
                 ),
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 30,
-                      backgroundImage: NetworkImage(
-                        'https://1.bp.blogspot.com/-mFWPriC5yZM/VUx-jyHRCEI/AAAAAAAAITM/zfCUzS4Y2wM/s1600/gambar+monyet+(17).jpg',
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          "Budi Styawan",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          "@Budi_22",
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ],
+                _buildTile(
+                  icon: Icons.settings_outlined,
+                  label: "Kelola Akun",
+                  subtitle: "Ubah email, password, dan keamanan",
+                  onTap: () => _openManageAccount(context),
                 ),
-              ),
-              const SizedBox(height: 24),
+                _buildTile(
+                  icon: Icons.fingerprint_rounded,
+                  label: "Face ID / Touch ID",
+                  trailing: CupertinoSwitch(
+                    value: faceIdEnabled,
+                    onChanged: (val) => setState(() => faceIdEnabled = val),
+                  ),
+                ),
+                _buildTile(
+                  icon: Icons.verified_user_outlined,
+                  label: "Autentikasi 2 Faktor",
+                  subtitle: "Tambahkan lapisan keamanan ekstra",
+                  onTap: () => _showInfoDialog(context, "Autentikasi 2 Faktor"),
+                ),
+              ],
+            ),
 
-              // Bagian Akun
-              _buildSection(
-                context,
-                title: "Akun Saya",
-                items: [
-                  _ProfileItem(
-                    icon: Icons.person_outline_rounded,
-                    label: "Data Diri Saya",
-                    subtitle: "Ketuk untuk mengganti data diri Anda",
-                    alert: true,
-                    onTap: () {
-                      _showEditDialog(context, "Data Diri Saya");
-                    },
-                  ),
-                  _ProfileItem(
-                    icon: Icons.settings_outlined,
-                    label: "Kelola Akun",
-                    subtitle: "Kelola akun yang tersimpan",
-                    onTap: () {
-                      _showEditDialog(context, "Kelola Akun");
-                    },
-                  ),
-                  _ProfileItem(
-                    icon: Icons.fingerprint_rounded,
-                    label: "Face ID / Touch ID",
-                    subtitle: "Kunci aplikasi Anda",
-                    hasSwitch: true,
-                  ),
-                  _ProfileItem(
-                    icon: Icons.verified_user_outlined,
-                    label: "Autentifikasi 2 Faktor",
-                    subtitle: "Amankan akun Anda lebih lanjut",
-                    onTap: () {
-                      _showEditDialog(context, "Autentifikasi 2 Faktor");
-                    },
-                  ),
-                  _ProfileItem(
-                    icon: Icons.logout_rounded,
-                    label: "Keluar",
-                    subtitle: "Keluar dari akun Anda",
-                    onTap: () {
-                      _showLogoutDialog(context);
-                    },
-                  ),
-                ],
-              ),
+            const SizedBox(height: 20),
 
-              const SizedBox(height: 20),
+            _buildSection(
+              title: "Preferensi",
+              items: [
+                _buildTile(
+                  icon: Icons.dark_mode_outlined,
+                  label: "Mode Gelap",
+                  trailing: CupertinoSwitch(
+                    value: darkMode,
+                    onChanged: (val) => setState(() => darkMode = val),
+                  ),
+                ),
+                _buildTile(
+                  icon: Icons.language_rounded,
+                  label: "Bahasa",
+                  subtitle: "Indonesia",
+                  onTap: () => _showLanguageDialog(context),
+                ),
+              ],
+            ),
 
-              // Bagian Lainnya
-              _buildSection(
-                context,
-                title: "Lainnya",
-                items: [
-                  _ProfileItem(
-                    icon: Icons.help_outline_rounded,
-                    label: "Bantuan & Dukungan",
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Menu Bantuan diklik")),
-                      );
-                    },
+            const SizedBox(height: 20),
+
+            _buildSection(
+              title: "Lainnya",
+              items: [
+                _buildTile(
+                  icon: Icons.help_outline_rounded,
+                  label: "Bantuan & Dukungan",
+                  onTap: () => _showInfoDialog(context, "Bantuan & Dukungan"),
+                ),
+                _buildTile(
+                  icon: Icons.info_outline_rounded,
+                  label: "Tentang Aplikasi",
+                  onTap: () => _showInfoDialog(context, "Tentang Aplikasi"),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 30),
+            Center(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 14,
                   ),
-                  _ProfileItem(
-                    icon: Icons.info_outline_rounded,
-                    label: "Tentang Aplikasi",
-                    onTap: () {
-                      _showEditDialog(context, "Tentang Aplikasi");
-                    },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
                   ),
-                ],
+                ),
+                onPressed: () => _showLogoutDialog(context),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text("Keluar Akun"),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildBottomNavBar(BuildContext context) {
+  // ===== HEADER =====
+  Widget _buildHeader() {
     return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      height: 80,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(30),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF007BFF), Color(0xFF4FC3F7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.15),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.blueAccent.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
           ),
         ],
-        border: Border.all(color: Colors.blue.withOpacity(0.1)),
       ),
+      padding: const EdgeInsets.all(20),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _NavItem(
-            icon: Icons.home_rounded,
-            label: "Home",
-            onTap: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const HomePage()),
+          const CircleAvatar(
+            radius: 35,
+            backgroundImage: NetworkImage(
+              'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
             ),
           ),
-          _NavItem(
-            icon: Icons.report_rounded,
-            label: "Laporan",
-            onTap: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const LaporanPage()),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  "Budi Styawan",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "budi.styawan@gmail.com",
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ],
             ),
           ),
-          _NavItem(
-            icon: Icons.sos_rounded,
-            label: "Darurat",
-            onTap: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const SOSPage()),
-            ),
-          ),
-          const _NavItem(
-            icon: Icons.person_rounded,
-            label: "Profil",
-            active: true,
+          IconButton(
+            onPressed: () => _openEditProfile(context),
+            icon: const Icon(Icons.edit, color: Colors.white),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSection(
-    BuildContext context, {
-    required String title,
-    required List<Widget> items,
-  }) {
+  // ===== SECTION BUILDER =====
+  Widget _buildSection({required String title, required List<Widget> items}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -207,8 +195,15 @@ class ProfilePage extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: darkMode ? Colors.grey[850] : Colors.white,
             borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Column(children: items),
         ),
@@ -216,119 +211,87 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  void _showEditDialog(BuildContext context, String fieldName) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Edit $fieldName"),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(hintText: "Masukkan $fieldName"),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("$fieldName berhasil diupdate!")),
-              );
-            },
-            child: const Text("Simpan"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Keluar"),
-        content: const Text("Apakah Anda yakin ingin keluar?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Anda telah logout")),
-              );
-            },
-            child: const Text("Keluar"),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Profile Item & NavItem sama seperti sebelumnya
-class _ProfileItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String? subtitle;
-  final bool alert;
-  final bool hasSwitch;
-  final VoidCallback? onTap;
-
-  const _ProfileItem({
-    required this.icon,
-    required this.label,
-    this.subtitle,
-    this.alert = false,
-    this.hasSwitch = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  // ===== TILE BUILDER =====
+  Widget _buildTile({
+    required IconData icon,
+    required String label,
+    String? subtitle,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
     return ListTile(
-      onTap: hasSwitch ? null : onTap,
-      leading: CircleAvatar(
-        radius: 18,
-        backgroundColor: Colors.blue.withOpacity(0.05),
-        child: Icon(icon, color: Colors.blue, size: 22),
-      ),
+      onTap: onTap,
+      leading: Icon(icon, color: Colors.blueAccent),
       title: Text(
         label,
         style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
       ),
       subtitle: subtitle != null
-          ? Text(subtitle!, style: const TextStyle(fontSize: 12))
+          ? Text(subtitle, style: const TextStyle(fontSize: 12))
           : null,
-      trailing: hasSwitch
-          ? Switch(value: false, onChanged: (_) {})
-          : alert
-          ? const Icon(Icons.error_outline_rounded, color: Colors.red)
-          : const Icon(Icons.chevron_right_rounded),
+      trailing:
+          trailing ??
+          const Icon(Icons.chevron_right_rounded, color: Colors.grey),
     );
   }
-}
 
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
+  // ===== NAVBAR =====
+  Widget _buildBottomNavBar(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 75,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.blue.withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _navItem(
+            icon: Icons.home_rounded,
+            label: "Home",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            ),
+          ),
+          _navItem(
+            icon: Icons.report_rounded,
+            label: "Laporan",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LaporanPage()),
+            ),
+          ),
+          _navItem(
+            icon: Icons.sos_rounded,
+            label: "Darurat",
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const SOSPage()),
+            ),
+          ),
+          _navItem(icon: Icons.person_rounded, label: "Profil", active: true),
+        ],
+      ),
+    );
+  }
 
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.active = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _navItem({
+    required IconData icon,
+    required String label,
+    bool active = false,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -357,6 +320,168 @@ class _NavItem extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ===== DIALOGS =====
+  void _showInfoDialog(BuildContext context, String title) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: const Text("Fitur ini akan segera tersedia."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Tutup"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Pilih Bahasa"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text("Indonesia"),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              title: const Text("English"),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Keluar Akun"),
+        content: const Text("Apakah Anda yakin ingin keluar dari akun ini?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Anda telah keluar dari akun.")),
+              );
+            },
+            child: const Text("Keluar"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openEditProfile(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const _EditProfilePage()),
+    );
+  }
+
+  void _openManageAccount(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const _ManageAccountPage()),
+    );
+  }
+}
+
+// ===== HALAMAN EDIT PROFIL =====
+class _EditProfilePage extends StatelessWidget {
+  const _EditProfilePage();
+
+  @override
+  Widget build(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final usernameCtrl = TextEditingController();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Edit Profil")),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const CircleAvatar(
+              radius: 45,
+              backgroundImage: NetworkImage(
+                'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: "Nama Lengkap"),
+            ),
+            TextField(
+              controller: usernameCtrl,
+              decoration: const InputDecoration(labelText: "Username"),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Profil berhasil diperbarui")),
+                );
+              },
+              child: const Text("Simpan Perubahan"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ===== HALAMAN KELOLA AKUN =====
+class _ManageAccountPage extends StatelessWidget {
+  const _ManageAccountPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Kelola Akun")),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.email_outlined),
+            title: const Text("Ubah Email"),
+            onTap: () {},
+          ),
+          ListTile(
+            leading: const Icon(Icons.lock_outline),
+            title: const Text("Ubah Password"),
+            onTap: () {},
+          ),
+          ListTile(
+            leading: const Icon(Icons.security_outlined),
+            title: const Text("Login dengan Google"),
+            subtitle: const Text("Hubungkan akun Google Anda"),
+            onTap: () {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text("Login Google...")));
+            },
+          ),
+        ],
       ),
     );
   }

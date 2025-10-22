@@ -46,7 +46,7 @@ class _SOSPageState extends State<SOSPage> {
 
               // Pilih jenis darurat
               DropdownButtonFormField<String>(
-                value: emergencyType,
+                initialValue: emergencyType,
                 decoration: InputDecoration(
                   labelText: "Jenis Darurat",
                   border: OutlineInputBorder(
@@ -123,7 +123,7 @@ class _SOSPageState extends State<SOSPage> {
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   Switch(
-                    activeColor: Colors.red,
+                    activeThumbColor: Colors.red,
                     value: needVolunteer,
                     onChanged: (value) => setState(() => needVolunteer = value),
                   ),

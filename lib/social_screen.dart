@@ -376,7 +376,7 @@ class _InfoAlamatPageState extends State<InfoAlamatPage> {
                 const SizedBox(height: 16),
 
                 DropdownButtonFormField<String>(
-                  value: selectedKota,
+                  initialValue: selectedKota,
                   decoration: const InputDecoration(labelText: "Kota"),
                   items: const [
                     DropdownMenuItem(value: "Malang", child: Text("Malang")),
@@ -395,7 +395,7 @@ class _InfoAlamatPageState extends State<InfoAlamatPage> {
                     Expanded(
                       flex: 2,
                       child: DropdownButtonFormField<String>(
-                        value: selectedNegara,
+                        initialValue: selectedNegara,
                         decoration: const InputDecoration(labelText: "Negara"),
                         items: const [
                           DropdownMenuItem(

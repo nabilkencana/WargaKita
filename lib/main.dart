@@ -28,7 +28,11 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool rememberMe = false;
+  bool _isPasswordVisible = false;
+
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   Future<void> _handleGoogleSignIn() async {
@@ -42,18 +46,34 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (error) {
       print("Error login Google: $error");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal login dengan Google')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal login dengan Google')),
+      );
     }
   }
 
   void _handleLogin() {
-    // Disini bisa tambahkan validasi email/password
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const HomePage()),
-    );
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email dan Password wajib diisi')),
+      );
+      return;
+    }
+
+    // Validasi sederhana (nanti bisa diganti ke backend)
+    if (email == "user@gmail.com" && password == "123456") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email atau Password salah')),
+      );
+    }
   }
 
   @override
@@ -63,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 🔹 Bagian atas dengan gradient lembut + ilustrasi
+            // 🔹 Bagian atas (header)
             Container(
               width: double.infinity,
               height: 340,
@@ -83,21 +103,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 40),
                   Center(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Image.asset(
-                        'assets/images/Vector.png',
-                        height: 140,
-                        fit: BoxFit.contain,
-                      ),
+                    child: Image.asset(
+                      'assets/images/Vector.png',
+                      height: 140,
+                      fit: BoxFit.contain,
                     ),
                   ),
                   const SizedBox(height: 25),
@@ -107,7 +116,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 26,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -123,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            // 🔸 Card Login (Glassmorphism style)
+            // 🔸 Card Login
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
               child: Container(
@@ -144,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: Column(
                   children: [
-                    // 🔘 Login Google
+                    // 🔘 Google login
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -168,19 +176,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          shadowColor: Colors.black12,
                         ),
                       ),
                     ),
 
                     const SizedBox(height: 28),
                     const Text(
-                      "atau masuk menggunakan email",
+                      "atau masuk menggunakan Email & Password",
                       style: TextStyle(color: Colors.black54, fontSize: 13),
                     ),
                     const SizedBox(height: 18),
 
-                    // 📩 Input Email
+                    // 📩 Email input
                     TextField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -191,6 +198,40 @@ class _LoginScreenState extends State<LoginScreen> {
                         prefixIcon: const Icon(
                           Icons.email_outlined,
                           color: Colors.grey,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // 🔐 Password input
+                    TextField(
+                      controller: passwordController,
+                      obscureText: !_isPasswordVisible,
+                      decoration: InputDecoration(
+                        hintText: "Password",
+                        filled: true,
+                        fillColor: const Color(0xFFF5F7FA),
+                        prefixIcon: const Icon(
+                          Icons.lock_outline,
+                          color: Colors.grey,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isPasswordVisible = !_isPasswordVisible;
+                            });
+                          },
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -229,8 +270,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          elevation: 6,
-                          shadowColor: Colors.blueAccent.withOpacity(0.5),
                         ),
                         child: const Text(
                           "Masuk",
@@ -238,7 +277,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            letterSpacing: 0.3,
                           ),
                         ),
                       ),
@@ -273,25 +311,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontSize: 15,
                           ),
                         ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // 🔸 Teks bawah
-                    const Text.rich(
-                      TextSpan(
-                        text: "Belum punya akun? ",
-                        style: TextStyle(color: Colors.black54),
-                        children: [
-                          TextSpan(
-                            text: "Daftar Sekarang!",
-                            style: TextStyle(
-                              color: Color(0xFF007BFF),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],
