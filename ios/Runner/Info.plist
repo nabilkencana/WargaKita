@@ -41,6 +41,20 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Permissions for iOS -->
+    <key>NSCameraUsageDescription</key>
+    <string>Butuh akses kamera untuk mengambil foto KK</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Butuh akses galeri untuk memilih foto KK</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Butuh akses mikrofon untuk video (jika ada)</string>
+
+	<!-- Allow HTTP requests for development -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
