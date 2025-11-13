@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
   final String email;
 
-  const VerifyOtpScreen({Key? key, required this.email}) : super(key: key);
+  const VerifyOtpScreen({super.key, required this.email});
 
   @override
   _VerifyOtpScreenState createState() => _VerifyOtpScreenState();

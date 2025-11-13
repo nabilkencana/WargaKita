@@ -6,9 +6,7 @@ import 'package:http_parser/http_parser.dart';
 import '../models/register_model.dart';
 
 class RegisterService {
-  // static const String baseUrl = 'http://10.0.2.2:3000/api'; // Android emulator
   static const String baseUrl = 'http://localhost:3000'; // iOS simulator
-  // static const String baseUrl = 'http://192.168.1.xxx:3000/api'; // Real device
 
   Future<RegisterResponse> register(
     RegisterRequest request, {

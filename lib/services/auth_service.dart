@@ -128,7 +128,7 @@ class AuthService {
     print('📝 Final parsed data:');
     print('   Message: $message');
     print('   Access Token: ${accessToken != null ? '✓' : '✗'}');
-    print('   User: ${user != null ? '✓' : '✗'}');
+    print('   User: ${'✓'}');
 
     return AuthResponse(
       message: message,
