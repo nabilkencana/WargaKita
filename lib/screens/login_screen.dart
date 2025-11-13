@@ -10,23 +10,44 @@ class LoginScreen extends StatefulWidget {
   _LoginScreenState createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   final TextEditingController _emailController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _rememberMe = false;
+
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    // Prefill dengan email contoh dari gambar
-    _emailController.text = 'BudiStyawan22@gmail.com';
+
+    // Animasi card login (fade + slide dari bawah)
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 900),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutQuint));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+
+    // Jalankan animasi saat halaman dimuat
+    _controller.forward();
   }
 
   Future<void> _sendOtp() async {
     final email = _emailController.text.trim();
-    
     if (email.isEmpty) {
       _showError('Email tidak boleh kosong');
       return;
@@ -37,42 +58,26 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // LANGSUNG NAVIGATE KE VERIFY OTP SCREEN TANPA MENUNGGU RESPONSE
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => VerifyOtpScreen(email: email),
-        ),
+        MaterialPageRoute(builder: (context) => VerifyOtpScreen(email: email)),
       );
-
-      // Kirim OTP di background setelah navigate
-      _authService.sendOtp(email).then((_) {
-        // Success handling bisa dilakukan di VerifyOtpScreen
-      }).catchError((error) {
-        // Error handling juga bisa dilakukan di VerifyOtpScreen
+      _authService.sendOtp(email).catchError((error) {
         print('Error sending OTP: $error');
       });
-      
     } catch (e) {
       _showError('Terjadi kesalahan: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
@@ -80,202 +85,307 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 40),
-              
-              // Title
-              const Text(
-                'Masuk ke Akun Anda',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // Subtitle
-              const Text(
-                'Masukkan dengan Email atau daftarkan akun anda',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
-              
-              const SizedBox(height: 40),
-              
-              // Google Login Button
-              Container(
-                width: double.infinity,
-                height: 50,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: TextButton.icon(
-                  onPressed: () {
-                    // Implement Google login
-                  },
-                  icon: Image.asset(
-                    'assets/images/google.png',
-                    width: 20,
-                    height: 20,
-                  ),
-                  label: const Text(
-                    'Lanjutkan dengan Google',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          children: [
+            // ===== HEADER DENGAN GRADIENT + GRID =====
+            Stack(
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 260,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF0D6EFD), Color(0xFF1E88E5)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(45),
+                      bottomRight: Radius.circular(45),
                     ),
                   ),
                 ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Divider dengan text "Atau login menggunakan"
-              Row(
-                children: [
-                  Expanded(
-                    child: Divider(color: Colors.grey.shade300),
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.12,
+                    child: Image.asset(
+                      'assets/images/grid_pattern.png',
+                      repeat: ImageRepeat.repeat,
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Atau login menggunakan',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
+                ),
+                Positioned.fill(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedOpacity(
+                        opacity: 1,
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeInOut,
+                        child: Column(
+                          children: [
+                            Image.asset(
+                              'assets/images/Vector.png',
+                              width: 70,
+                              height: 70,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'Masuk ke Akun Anda',
+                              style: TextStyle(
+                                fontSize: 24,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Masuk dengan Email atau daftar akun baru',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white70,
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  Expanded(
-                    child: Divider(color: Colors.grey.shade300),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Email Input
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'Masukkan email anda',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  prefixIcon: const Icon(Icons.email_outlined),
                 ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Remember Me Checkbox
-              Row(
-                children: [
-                  Checkbox(
-                    value: _rememberMe,
-                    onChanged: (value) {
-                      setState(() {
-                        _rememberMe = value ?? false;
-                      });
-                    },
+              ],
+            ),
+
+            // ===== FORM LOGIN CARD =====
+            SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 30,
                   ),
-                  const Text('Ingat saya'),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Kirim OTP Button - LANGSUNG NAVIGATE SAAT DI-TAP
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _sendOtp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 28,
                     ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Kirim OTP',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blueGrey.withOpacity(0.08),
+                          blurRadius: 25,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Tombol Google
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            onPressed: () {},
+                            icon: Image.asset(
+                              'assets/images/google.png',
+                              width: 20,
+                            ),
+                            label: const Text(
+                              'Lanjutkan dengan Google',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
                         ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Register Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton(
-                  onPressed: () {
-                    // Navigate to register screen
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const RegisterScreen(),
-                      ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    side: BorderSide(color: Colors.blue.shade400),
-                  ),
-                  child: const Text(
-                    'Daftar',
-                    style: TextStyle(color: Colors.blue, fontSize: 16),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Footer text
-              Center(
-                child: GestureDetector(
-                  onTap: () {
-                    // Navigate to register screen
-                  },
-                  child: RichText(
-                    text: const TextSpan(
-                      text: 'Tidak mempunyai Akun? ',
-                      style: TextStyle(color: Colors.grey),
-                      children: [
-                        TextSpan(
-                          text: 'Daftar Sekarang!',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
+
+                        const SizedBox(height: 22),
+
+                        // Divider
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: Colors.grey.shade300,
+                                height: 1,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              child: Text(
+                                'atau login dengan email',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: Colors.grey.shade300,
+                                height: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 22),
+
+                        // Input email
+                        TextField(
+                          controller: _emailController,
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            hintText: 'Masukkan email anda',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            prefixIcon: const Icon(Icons.email_outlined),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Checkbox Ingat Saya
+                        Row(
+                          children: [
+                            Checkbox(
+                              activeColor: const Color(0xFF0D6EFD),
+                              value: _rememberMe,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? false;
+                                });
+                              },
+                            ),
+                            const Text(
+                              'Ingat saya',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Tombol Masuk
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _sendOtp,
+                            style: ElevatedButton.styleFrom(
+                              elevation: 5,
+                              backgroundColor: const Color(0xFF0D6EFD),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  )
+                                : const Text(
+                                    'Masuk',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Tombol Daftar
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const RegisterScreen(),
+                                ),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: Color(0xFF0D6EFD),
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Daftar',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFF0D6EFD),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Footer teks
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          child: RichText(
+                            text: const TextSpan(
+                              text: 'Tidak mempunyai akun? ',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13.5,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: 'Daftar Sekarang!',
+                                  style: TextStyle(
+                                    color: Color(0xFF0D6EFD),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -283,8 +393,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -292,6 +402,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _controller.dispose();
     _emailController.dispose();
     super.dispose();
   }

@@ -53,7 +53,7 @@ class AuthService {
       final responseBody = response.body;
       final responseData = json.decode(responseBody);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode.toString().startsWith("2")) {
         print('✅ OTP verification successful on server');
         
         // DEBUG: Print struktur response
