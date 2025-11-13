@@ -1,7 +1,11 @@
+// home_screen.dart
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/announcement_model.dart';
 import '../services/announcement_service.dart';
+import 'sos_screen.dart';
+import 'laporan_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -15,39 +19,29 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Announcement>> _announcementsFuture;
   List<Announcement> _announcements = [];
+  int _currentIndex = 0;
+
+  // Daftar screen untuk bottom navigation
+  final List<Widget> _screens = [];
 
   @override
   void initState() {
     super.initState();
     _announcementsFuture = AnnouncementService.getAnnouncements();
-  }
-
-  Future<void> _refreshAnnouncements() async {
-    setState(() {
-      _announcementsFuture = AnnouncementService.getAnnouncements();
+    // Inisialisasi screens setelah widget.user tersedia
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {
+        _screens.addAll([
+          _buildHomeContent(),
+          SosScreen(user: widget.user),
+          LaporanScreen(user: widget.user),
+          ProfileScreen(user: widget.user),
+        ]);
+      });
     });
   }
 
-  // Method untuk mendapatkan warna berdasarkan target audience (jika masih diperlukan)
-  Color _getColorByTarget(String targetAudience) {
-    switch (targetAudience.toLowerCase()) {
-      case 'seluruh warga':
-        return Colors.red.shade400;
-      case 'orang penting':
-        return Colors.blue.shade400;
-      case 'pengurus':
-        return Colors.green.shade400;
-      case 'pemuda':
-        return Colors.orange.shade400;
-      case 'perempuan':
-        return Colors.pink.shade400;
-      default:
-        return Colors.purple.shade400;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildHomeContent() {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -70,6 +64,25 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _refreshAnnouncements() async {
+    setState(() {
+      _announcementsFuture = AnnouncementService.getAnnouncements();
+    });
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens.isEmpty ? _buildHomeContent() : _screens[_currentIndex],
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
@@ -985,7 +998,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // === BOTTOM NAV BAR ===
-  Widget _buildBottomNavBar() {
+    Widget _buildBottomNavBar() {
     return Container(
       height: 80,
       decoration: BoxDecoration(
@@ -1001,45 +1014,49 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildNavItem(Icons.home_filled, 'Home', true),
-          _buildNavItem(Icons.info_outline, 'Info', false),
-          _buildNavItem(Icons.article_outlined, 'Berita', false),
-          _buildNavItem(Icons.person_outline, 'Profil', false),
+          _buildNavItem(Icons.home_filled, 'Home', 0),
+          _buildNavItem(Icons.emergency_outlined, 'SOS', 1),
+          _buildNavItem(Icons.report_outlined, 'Laporan', 2),
+          _buildNavItem(Icons.person_outline, 'Profil', 3),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool active) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: active ? Colors.blue.shade50 : Colors.transparent,
-            shape: BoxShape.circle,
-            border: active
-                ? Border.all(color: Colors.blue.shade100, width: 2)
-                : null,
+  Widget _buildNavItem(IconData icon, String label, int index) {
+    bool active = _currentIndex == index;
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: active ? Colors.blue.shade50 : Colors.transparent,
+              shape: BoxShape.circle,
+              border: active
+                  ? Border.all(color: Colors.blue.shade100, width: 2)
+                  : null,
+            ),
+            child: Icon(
+              icon,
+              color: active ? Colors.blue : Colors.grey.shade600,
+              size: 22,
+            ),
           ),
-          child: Icon(
-            icon,
-            color: active ? Colors.blue : Colors.grey.shade600,
-            size: 22,
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: active ? Colors.blue : Colors.grey.shade600,
+              fontSize: 11,
+              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: active ? Colors.blue : Colors.grey.shade600,
-            fontSize: 11,
-            fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

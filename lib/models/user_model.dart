@@ -2,6 +2,7 @@ class User {
   final String id;
   final String email;
   final String? name;
+  final String? phone;
   final String? role;
   final String? otpCode;
   final DateTime? otpExpire;
@@ -10,6 +11,7 @@ class User {
     required this.id,
     required this.email,
     this.name,
+    this.phone,
     this.role,
     this.otpCode,
     this.otpExpire,
@@ -55,6 +57,7 @@ class User {
       'email': email,
       'name': name,
       'role': role,
+      'phone': phone,
       'otpCode': otpCode,
       'otpExpire': otpExpire?.toIso8601String(),
     };
