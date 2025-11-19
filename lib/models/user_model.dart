@@ -51,6 +51,10 @@ class User {
     );
   }
 
+  get address => null;
+
+  get alamat => null;
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

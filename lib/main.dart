@@ -1,7 +1,7 @@
 // main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart'; // Import splash screen
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,11 +28,13 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),
-      home: const LoginScreen(),
+      home: const SplashToLoginScreen(), // Ganti dengan splash screen
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.0)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(1.0)),
           child: child!,
         );
       },

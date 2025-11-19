@@ -19,7 +19,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Announcement>> _announcementsFuture;
   List<Announcement> _announcements = [];
+  List<Announcement> _filteredAnnouncements = [];
   int _currentIndex = 0;
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
 
   // Daftar screen untuk bottom navigation
   final List<Widget> _screens = [];
@@ -41,6 +44,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Widget _buildHomeContent() {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -56,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 return _buildErrorState(snapshot.error.toString());
               } else if (snapshot.hasData) {
                 _announcements = snapshot.data!;
+                _filteredAnnouncements = _announcements;
                 return _buildContent();
               } else {
                 return _buildEmptyState();
@@ -77,6 +87,293 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _currentIndex = index;
     });
+  }
+
+  void _handleSearch(String query) {
+    setState(() {
+      _isSearching = query.isNotEmpty;
+      if (query.isEmpty) {
+        _filteredAnnouncements = _announcements;
+      } else {
+        _filteredAnnouncements = _announcements.where((announcement) {
+          return announcement.title.toLowerCase().contains(
+                query.toLowerCase(),
+              ) ||
+              announcement.description.toLowerCase().contains(
+                query.toLowerCase(),
+              ) ||
+              announcement.targetAudience.toLowerCase().contains(
+                query.toLowerCase(),
+              );
+        }).toList();
+      }
+    });
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searchController.clear();
+      _isSearching = false;
+      _filteredAnnouncements = _announcements;
+    });
+  }
+
+  void _showNotifications() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade700,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Notifikasi',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        '3 Baru',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _buildNotificationItem(
+                      Icons.people_alt_rounded,
+                      'Kerja Bakti Bersama',
+                      'Anda telah bergabung dalam kegiatan kerja bakti',
+                      'Baru saja',
+                      Colors.green,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNotificationItem(
+                      Icons.announcement_rounded,
+                      'Pengumuman Baru',
+                      'Ada pengumuman penting dari admin',
+                      '1 jam lalu',
+                      Colors.blue,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNotificationItem(
+                      Icons.warning_amber_rounded,
+                      'Peringatan Cuaca',
+                      'Hari ini diperkirakan hujan lebat',
+                      '2 jam lalu',
+                      Colors.orange,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNotificationItem(
+                      Icons.event_available_rounded,
+                      'Acara Mendatang',
+                      'Rapat warga akan dilaksanakan besok',
+                      '5 jam lalu',
+                      Colors.purple,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNotificationItem(
+                      Icons.security_rounded,
+                      'Keamanan Lingkungan',
+                      'Laporan keamanan telah diproses',
+                      '1 hari lalu',
+                      Colors.red,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNotificationItem(
+    IconData icon,
+    String title,
+    String message,
+    String time,
+    Color color,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              time,
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 10),
+            ),
+          ],
+        ),
+        trailing: Container(
+          width: 8,
+          height: 8,
+          decoration: const BoxDecoration(
+            color: Colors.red,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _joinWorkActivity() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.people_alt_rounded, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Bergabung Kerja Bakti'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Apakah Anda yakin ingin bergabung dalam kegiatan kerja bakti bersama warga?',
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                SizedBox(width: 8),
+                Text('Minggu, 15 Desember 2024'),
+              ],
+            ),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 16, color: Colors.grey),
+                SizedBox(width: 8),
+                Text('08.00 - 12.00 WIB'),
+              ],
+            ),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 16, color: Colors.grey),
+                SizedBox(width: 8),
+                Text('Lapangan RT 05'),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showJoinSuccess();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Ya, Bergabung'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showJoinSuccess() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 8),
+            Text('Berhasil bergabung dalam kerja bakti!'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -248,46 +545,49 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              // Notifikasi dengan badge
-              Stack(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.notifications_outlined,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
+              // Notifikasi dengan badge - DIFUNGSIKAN
+              GestureDetector(
+                onTap: _showNotifications,
+                child: Stack(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
                         shape: BoxShape.circle,
                       ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: const Text(
-                        '3',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
+                      child: Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.white,
+                        size: 24,
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: const Text(
+                          '3',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -311,7 +611,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          // Search bar yang lebih modern
+          // Search bar yang lebih modern - DIFUNGSIKAN
           Container(
             height: 50,
             decoration: BoxDecoration(
@@ -332,26 +632,38 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
+                    controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Cari pengumuman...',
                       border: InputBorder.none,
                       hintStyle: TextStyle(color: Colors.grey.shade400),
                     ),
+                    onChanged: _handleSearch,
                   ),
                 ),
-                Container(
-                  margin: const EdgeInsets.all(6),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    shape: BoxShape.circle,
+                if (_isSearching)
+                  IconButton(
+                    icon: Icon(
+                      Icons.clear,
+                      color: Colors.grey.shade400,
+                      size: 18,
+                    ),
+                    onPressed: _clearSearch,
+                  )
+                else
+                  Container(
+                    margin: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.tune,
+                      color: Colors.blue.shade600,
+                      size: 18,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.tune,
-                    color: Colors.blue.shade600,
-                    size: 18,
-                  ),
-                ),
               ],
             ),
           ),
@@ -523,33 +835,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.blue.shade600,
-                              Colors.blue.shade400,
+                      // Tombol Ikuti - DIFUNGSIKAN
+                      GestureDetector(
+                        onTap: _joinWorkActivity,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.blue.shade600,
+                                Colors.blue.shade400,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.shade300.withOpacity(0.4),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blue.shade300.withOpacity(0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
+                          child: const Text(
+                            'Ikuti',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
-                        ),
-                        child: const Text(
-                          'Ikuti',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -566,6 +882,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // === ANNOUNCEMENTS LIST YANG DIPERBAIKI ===
   Widget _buildAnnouncementsList() {
+    final announcementsToShow = _isSearching
+        ? _filteredAnnouncements
+        : _announcements;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -573,9 +893,9 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              const Text(
-                'Pengumuman Terbaru',
-                style: TextStyle(
+              Text(
+                _isSearching ? 'Hasil Pencarian' : 'Pengumuman Terbaru',
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
@@ -592,7 +912,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${_announcements.length} items',
+                  '${announcementsToShow.length} items',
                   style: TextStyle(
                     color: Colors.blue.shade700,
                     fontSize: 12,
@@ -603,22 +923,22 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          if (_announcements.isEmpty)
-            _buildEmptyAnnouncements()
+          if (announcementsToShow.isEmpty)
+            _buildEmptySearchResults()
           else
-            ..._buildAnnouncementsItems(),
+            ..._buildAnnouncementsItems(announcementsToShow),
         ],
       ),
     );
   }
 
-  List<Widget> _buildAnnouncementsItems() {
+  List<Widget> _buildAnnouncementsItems(List<Announcement> announcements) {
     List<Widget> items = [];
-    for (int i = 0; i < _announcements.length; i++) {
-      final announcement = _announcements[i];
+    for (int i = 0; i < announcements.length; i++) {
+      final announcement = announcements[i];
       items.add(_buildAnnouncementItem(announcement));
 
-      if (i < _announcements.length - 1) {
+      if (i < announcements.length - 1) {
         items.add(const SizedBox(height: 16));
       }
     }
@@ -813,6 +1133,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildEmptySearchResults() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.search_off_rounded, color: Colors.grey.shade400, size: 48),
+          const SizedBox(height: 16),
+          const Text(
+            'Tidak ada hasil pencarian',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tidak ada pengumuman yang cocok dengan "${_searchController.text}"',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _clearSearch,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text(
+              'Tampilkan Semua',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getDayType(Announcement announcement) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -998,7 +1358,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // === BOTTOM NAV BAR ===
-    Widget _buildBottomNavBar() {
+  Widget _buildBottomNavBar() {
     return Container(
       height: 80,
       decoration: BoxDecoration(
