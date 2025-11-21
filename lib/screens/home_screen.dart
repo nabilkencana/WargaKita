@@ -42,6 +42,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ]);
       });
     });
+    _screens.addAll([
+      _buildHomeContent(),
+      SosScreen(user: widget.user),
+      LaporanScreen(user: widget.user),
+      ProfileScreen(user: widget.user),
+    ]);
   }
 
   @override
@@ -378,8 +384,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _currentIndex == 0
+        ? _buildHomeContent()
+        : _screens[_currentIndex];    
     return Scaffold(
-      body: _screens.isEmpty ? _buildHomeContent() : _screens[_currentIndex],
+      body: body,
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }

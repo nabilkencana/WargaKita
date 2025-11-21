@@ -5,7 +5,7 @@ import '../models/sos_model.dart';
 
 class SosService {
   static const String baseUrl =
-      'http://localhost:3000'; // Sesuaikan dengan URL NestJS
+      'https://apiwarga.digicodes.my.id'; // Sesuaikan dengan URL NestJS
   // static const String baseUrl = 'http://192.168.1.100:3000'; // Untuk mobile
 
   final String _apiUrl = '$baseUrl/emergency';

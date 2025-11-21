@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -104,37 +105,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _pickKKFile() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 80,
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
       );
 
-      if (image != null) {
+      if (result != null && result.files.single.path != null) {
         setState(() {
-          _kkFile = File(image.path);
+          _kkFile = File(result.files.single.path!);
         });
-        _showSuccess('Foto KK berhasil diupload');
 
-        // Debug info
-        print('📁 File selected: ${image.path}');
-        print('📁 File size: ${_kkFile?.lengthSync()} bytes');
+        print('📁 KK File: ${_kkFile!.path}');
+        print('📁 Size: ${_kkFile!.lengthSync()}');
+
+        _showSuccess("File KK berhasil dipilih");
       } else {
-        print('⚠️ No file selected');
+        print("⚠️ No file selected");
       }
     } catch (e) {
-      print('❌ Error picking file: $e');
-      _showError(
-        'Gagal memilih file. Pastikan aplikasi memiliki izin akses storage.',
-      );
-
-      // Show more detailed error for debugging
-      if (e.toString().contains('permission')) {
-        _showError(
-          'Izin akses storage ditolak. Silakan berikan izin di pengaturan aplikasi.',
-        );
-      }
+      print("❌ Error picking file: $e");
     }
   }
 

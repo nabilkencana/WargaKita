@@ -6,7 +6,8 @@ import 'package:http_parser/http_parser.dart';
 import '../models/register_model.dart';
 
 class RegisterService {
-  static const String baseUrl = 'http://localhost:3000'; // iOS simulator
+  static const String baseUrl =
+      'https://apiwarga.digicodes.my.id'; // iOS simulator
 
   Future<RegisterResponse> register(
     RegisterRequest request, {
@@ -45,7 +46,7 @@ class RegisterService {
       if (filePath != null && filePath.isNotEmpty) {
         try {
           var file = await http.MultipartFile.fromPath(
-            'file',
+            'kkFile',
             filePath,
             contentType: MediaType('image', 'jpeg'),
           );

@@ -419,7 +419,7 @@ class ProfileScreen extends StatelessWidget {
         trailing: Switch(
           value: title == 'Autentikasi Biometrik' ? false : true,
           onChanged: (value) {},
-          activeColor: Colors.purple,
+          activeThumbColor: Colors.purple,
         ),
         onTap: onTap,
       ),
@@ -620,7 +620,7 @@ class ProfileScreen extends StatelessWidget {
         trailing: Switch(
           value: value,
           onChanged: (newValue) {},
-          activeColor: Colors.purple,
+          activeThumbColor: Colors.purple,
         ),
       ),
     );
@@ -969,7 +969,7 @@ class ProfileScreen extends StatelessWidget {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => LoginScreen()),
-      (route) => false,
+      (route) => true,
     );
   }
   

@@ -5,7 +5,7 @@ import '../models/laporan_model.dart';
 
 class LaporanService {
   static const String baseUrl =
-      'http://localhost:3000/reports'; // Ganti dengan URL backend Anda
+      'https://apiwarga.digicodes.my.id/reports'; // Ganti dengan URL backend Anda
 
   // Create new report
   static Future<Laporan> createLaporan(Laporan laporan) async {

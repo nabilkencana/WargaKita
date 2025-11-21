@@ -5,7 +5,7 @@ import '../models/profile_model.dart';
 
 class ProfileService {
   static const String baseUrl =
-      'http://localhost:3000/users'; // Ganti dengan URL backend
+      'https://apiwarga.digicodes.my.id/users'; // Ganti dengan URL backend
 
   // Get user profile by ID
   static Future<Profile> getProfile(int userId) async {

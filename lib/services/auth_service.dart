@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 
 class AuthService {
   static const String baseUrl =
-      'http://localhost:3000'; // Ganti dengan URL backend Anda
+      'https://apiwarga.digicodes.my.id'; // Ganti dengan URL backend Anda
 
   Future<OtpResponse> sendOtp(String email) async {
     try {

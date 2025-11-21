@@ -1,12 +1,13 @@
 // laporan_screen.dart
 import 'dart:io';
-import 'dart:html' as html; // Untuk web
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart'; // Untuk kIsWeb
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/user_model.dart';
 import '../models/laporan_model.dart';
 import '../services/laporan_service.dart';
+import 'package:http/http.dart' as http;
 
 class LaporanScreen extends StatefulWidget {
   final User user;
@@ -620,30 +621,21 @@ class _LaporanScreenState extends State<LaporanScreen> {
   Future<void> _pickImageFromGallery() async {
     try {
       if (kIsWeb) {
-        // Untuk Web
-        final html.FileUploadInputElement uploadInput =
-            html.FileUploadInputElement();
-        uploadInput.accept = 'image/*';
-        uploadInput.click();
+        // ======== Untuk Flutter Web ========
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+          withData: true, // penting untuk Web
+        );
 
-        uploadInput.onChange.listen((e) {
-          final files = uploadInput.files;
-          if (files != null && files.isNotEmpty) {
-            final file = files[0];
-            final reader = html.FileReader();
-
-            reader.onLoadEnd.listen((e) {
-              setState(() {
-                _imageBytes = reader.result as Uint8List?;
-                _imageUrl = null;
-              });
-            });
-
-            reader.readAsArrayBuffer(file);
-          }
-        });
+        if (result != null && result.files.isNotEmpty) {
+          setState(() {
+            _imageBytes = result.files.first.bytes; // Uint8List
+            _imageUrl = null;
+          });
+        }
       } else {
-        // Untuk Mobile
+        // ======== Untuk Windows, Android, iOS ========
         final XFile? pickedFile = await _imagePicker.pickImage(
           source: ImageSource.gallery,
           maxWidth: 1200,
@@ -654,11 +646,13 @@ class _LaporanScreenState extends State<LaporanScreen> {
         if (pickedFile != null) {
           setState(() {
             _imageFile = File(pickedFile.path);
+            _imageBytes = null;
+            _imageUrl = null;
           });
         }
       }
     } catch (e) {
-      _showErrorDialog('Gagal memilih gambar dari galeri: $e');
+      _showErrorDialog("Gagal memilih gambar: $e");
     }
   }
 
@@ -693,36 +687,57 @@ class _LaporanScreenState extends State<LaporanScreen> {
   }
 
   void _submitLaporan() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+    if (!_formKey.currentState!.validate()) return;
 
-      try {
-        Laporan laporanBaru = Laporan(
-          title: _judulController.text,
-          description: _deskripsiController.text,
-          category: _selectedKategori,
-          userId: widget.user.id,
+    setState(() => _isLoading = true);
+
+    try {
+      final uri = Uri.parse("https://apiwarga.digicodes.my.id/reports");
+
+      var request = http.MultipartRequest("POST", uri);
+
+      // --- form fields ---
+      request.fields['title'] = _judulController.text;
+      request.fields['description'] = _deskripsiController.text;
+      request.fields['category'] = _selectedKategori;
+      request.fields['userId'] = widget.user.id.toString();
+
+      // --- FILE UPLOAD ---
+      if (!kIsWeb && _imageFile != null) {
+        // Mobile / Windows
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image', // <-- NAMA FIELD WAJIB SAMA DENGAN BACKEND
+            _imageFile!.path,
+          ),
         );
-
-        // TODO: Upload gambar ke server (baik untuk web maupun mobile)
-        if ((kIsWeb && _imageBytes != null) ||
-            (!kIsWeb && _imageFile != null)) {
-          // Implementasi upload gambar ke backend
-          // String imageUrl = await uploadImageToServer(_imageFile! atau _imageBytes!);
-          // laporanBaru.imageUrl = imageUrl;
-        }
-
-        await LaporanService.createLaporan(laporanBaru);
-        _showSuccessDialog();
-      } catch (e) {
-        _showErrorDialog('Gagal mengirim laporan: $e');
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
       }
+
+      if (kIsWeb && _imageBytes != null) {
+        // Web
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            _imageBytes!,
+            filename: "upload.jpg",
+          ),
+        );
+      }
+
+      // Kirim request
+      final response = await request.send();
+      final respStr = await response.stream.bytesToString();
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        _showSuccessDialog();
+        _clearForm();
+      } else {
+        _showErrorDialog("Gagal: $respStr");
+      }
+    } catch (e) {
+      _showErrorDialog("Error mengirim laporan: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 

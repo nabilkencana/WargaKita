@@ -5,7 +5,7 @@ import '../models/announcement_model.dart';
 
 class AnnouncementService {
   static const String baseUrl =
-      'http://localhost:3000'; // Ganti dengan URL API Anda
+      'https://apiwarga.digicodes.my.id'; // Ganti dengan URL API Anda
 
   // Get semua pengumuman
   static Future<List<Announcement>> getAnnouncements() async {
