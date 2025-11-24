@@ -41,6 +41,7 @@ dependencies:
   http_parser: ^4.0.2
   universal_html: ^2.2.1  # Alternatif untuk dart:html di web
   dio: ^5.7.0
+  google_sign_in: ^6.1.5
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +75,12 @@ flutter:
     - assets/images/
     - assets/images/google.png
     - assets/images/grid_pattern.png
+    - assets/images/Vector.svg
+    - assets/images/facebook.png
+    - assets/images/instagram.png
+    - assets/images/linkedin.png
+    - assets/images/twitter.png
+    - assets/images/tiktok.png
   
 
   # To add assets to your application, add an assets section, like this:

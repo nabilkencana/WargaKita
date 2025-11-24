@@ -1,3 +1,4 @@
+import 'package:flutter/src/widgets/framework.dart';
 import 'package:sqflite/sqflite.dart';
 import 'db_helper.dart';
 import '../models/user.dart';
@@ -26,4 +27,6 @@ class UserService {
     final res = await db.query('users');
     return res.map((e) => User.fromMap(e)).toList();
   }
+
+  void openLiveChat(BuildContext context) {}
 }

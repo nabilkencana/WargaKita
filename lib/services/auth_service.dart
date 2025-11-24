@@ -1,12 +1,20 @@
+// services/auth_service.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 
 class AuthService {
-  static const String baseUrl =
-      'https://apiwarga.digicodes.my.id'; // Ganti dengan URL backend Anda
+  static const String baseUrl = 'https://wargakita.canadev.my.id';
 
+  // Initialize Google Sign In
+  static final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+    // Client ID akan auto-detected berdasarkan platform
+  );
+
+  // 🔐 OTP METHODS
   Future<OtpResponse> sendOtp(String email) async {
     try {
       final response = await http.post(
@@ -15,7 +23,7 @@ class AuthService {
         body: json.encode({'email': email}),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode.toString().startsWith('2')) {
         return OtpResponse.fromJson(json.decode(response.body));
       } else {
         final error = json.decode(response.body);
@@ -28,152 +36,177 @@ class AuthService {
 
   Future<AuthResponse> verifyOtp(String email, String otp) async {
     try {
-      print('🚀 Starting OTP verification...');
-      print('📧 Email: $email');
-      print('🔢 OTP: $otp');
-      print('🌐 URL: $baseUrl/auth/verify-otp');
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/verify-otp'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: json.encode({'email': email, 'otp': otp}),
+          )
+          .timeout(const Duration(seconds: 15));
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/verify-otp'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: json.encode({
-          'email': email,
-          'otp': otp,
-        }),
-      ).timeout(const Duration(seconds: 15));
-
-      print('📡 Response Status Code: ${response.statusCode}');
-      print('📦 Response Headers: ${response.headers}');
-      print('📦 Full Response Body: ${response.body}');
-
-      // Parse response body terlebih dahulu
-      final responseBody = response.body;
-      final responseData = json.decode(responseBody);
+      final responseData = json.decode(response.body);
 
       if (response.statusCode.toString().startsWith("2")) {
-        print('✅ OTP verification successful on server');
-        
-        // DEBUG: Print struktur response
-        print('🔍 Response structure:');
-        responseData.forEach((key, value) {
-          print('   $key: $value (${value.runtimeType})');
-        });
-
-        // Handle berbagai kemungkinan struktur response
         return _parseAuthResponse(responseData);
       } else {
-        final errorMessage = responseData['message'] ?? 
-        responseData['error'] ?? 
-        'OTP verification failed with status ${response.statusCode}';
-        print('❌ OTP verification failed: $errorMessage');
+        final errorMessage =
+            responseData['message'] ?? 'OTP verification failed';
         throw Exception(errorMessage);
       }
-    } on FormatException catch (e) {
-      print('❌ JSON Format Error: $e');
-      throw Exception('Format response tidak valid dari server');
-    } on http.ClientException catch (e) {
-      print('🌐 Network Error: $e');
-      throw Exception('Koneksi internet bermasalah: $e');
-    } on TimeoutException {
-      print('⏰ Request Timeout');
-      throw Exception('Timeout - server tidak merespons');
     } catch (e) {
-      print('💥 Unexpected Error: $e');
       throw Exception('Terjadi kesalahan: $e');
     }
   }
 
-  // Method untuk parsing response yang flexible
-  AuthResponse _parseAuthResponse(Map<String, dynamic> responseData) {
-    print('🔄 Parsing auth response...');
-    
-    // Debug: print semua keys yang ada
-    print('🔑 Available keys: ${responseData.keys.toList()}');
+  // 🔐 REAL GOOGLE SIGN IN
+  Future<AuthResponse> signInWithGoogle() async {
+    try {
+      print('🔐 Starting real Google Sign In...');
 
-    // Handle berbagai kemungkinan struktur user data
-    User? user;
-    
-    if (responseData['user'] != null) {
-      if (responseData['user'] is Map<String, dynamic>) {
-        try {
-          user = User.fromJson(responseData['user']);
-          print('✅ User data parsed successfully');
-        } catch (e) {
-          print('⚠️ Error parsing user data: $e');
-          // Create fallback user
-          user = _createFallbackUser(responseData);
-        }
+      // Sign out dulu untuk clear session sebelumnya
+      await _googleSignIn.signOut();
+
+      // Trigger Google Sign In
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        throw Exception('Google sign in dibatalkan oleh user');
+      }
+
+      print('✅ Google user selected: ${googleUser.email}');
+
+      // Get authentication details
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      print('🔑 Google auth completed');
+      print('   ID Token: ${googleAuth.idToken != null ? '✓' : '✗'}');
+      print('   Access Token: ${googleAuth.accessToken != null ? '✓' : '✗'}');
+
+      // Send to backend dengan ID Token (recommended untuk security)
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/google/mobile'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: json.encode({
+              'idToken':
+                  googleAuth.idToken, // Gunakan ID Token untuk verification
+              'accessToken': googleAuth.accessToken, // Backup
+              'email': googleUser.email,
+              'name': googleUser.displayName,
+              'picture': googleUser.photoUrl,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      print('📡 Backend response status: ${response.statusCode}');
+      print('📦 Backend response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        print('✅ Real Google login successful');
+
+        return _parseAuthResponse(responseData);
       } else {
-        print('⚠️ User data is not a Map, creating fallback');
+        final errorData = json.decode(response.body);
+        final errorMessage =
+            errorData['message'] ?? 'Gagal login dengan Google';
+        throw Exception(errorMessage);
+      }
+    } on http.ClientException catch (e) {
+      print('🌐 Network error: $e');
+      throw Exception('Koneksi internet bermasalah');
+    } on TimeoutException {
+      print('⏰ Request timeout');
+      throw Exception('Timeout - server tidak merespons');
+    } catch (error) {
+      print('💥 Real Google sign in error: $error');
+
+      // Handle specific Google Sign In errors
+      if (error.toString().contains('sign_in_failed')) {
+        throw Exception(
+          'Google Sign In gagal. Pastikan Google Play Services terinstall dan updated.',
+        );
+      } else if (error.toString().contains('network_error')) {
+        throw Exception('Koneksi internet bermasalah');
+      } else if (error.toString().contains('INVALID_ACCOUNT')) {
+        throw Exception('Akun Google tidak valid');
+      }
+
+      throw Exception('Gagal login dengan Google: $error');
+    }
+  }
+
+  // Check if user already signed in
+  Future<GoogleSignInAccount?> getCurrentGoogleUser() async {
+    return await _googleSignIn.currentUser;
+  }
+
+  // Sign out from Google
+  Future<void> signOutGoogle() async {
+    await _googleSignIn.signOut();
+    print('✅ Signed out from Google');
+  }
+
+  // Method untuk parsing response
+  AuthResponse _parseAuthResponse(Map<String, dynamic> responseData) {
+    User? user;
+
+    if (responseData['user'] != null &&
+        responseData['user'] is Map<String, dynamic>) {
+      try {
+        user = User.fromJson(responseData['user']);
+        print('✅ User data parsed: ${user.name}');
+      } catch (e) {
+        print('⚠️ Error parsing user data: $e');
         user = _createFallbackUser(responseData);
       }
     } else {
-      print('⚠️ No user data in response, creating fallback');
       user = _createFallbackUser(responseData);
     }
 
-    // Handle message field
-    String message = responseData['message'] ?? 
-                    responseData['msg'] ?? 
-                    'Login berhasil';
+    String message = responseData['message'] ?? 'Login berhasil';
+    String? accessToken =
+        responseData['access_token'] ?? responseData['accessToken'];
 
-    // Handle access token
-    String? accessToken = responseData['access_token'] ?? 
-    responseData['accessToken'] ?? 
-    responseData['token'];
+    print('🔑 Access Token: ${accessToken != null ? '✓' : '✗'}');
 
-    print('📝 Final parsed data:');
-    print('   Message: $message');
-    print('   Access Token: ${accessToken != null ? '✓' : '✗'}');
-    print('   User: ${'✓'}');
-
-    return AuthResponse(
-      message: message,
-      user: user,
-      accessToken: accessToken,
-    );
+    return AuthResponse(message: message, user: user, accessToken: accessToken);
   }
 
-  // Create fallback user jika parsing gagal
   User _createFallbackUser(Map<String, dynamic> responseData) {
     return User(
-      id: responseData['userId']?.toString() ?? 
-          responseData['id']?.toString() ?? 
+      id:
+          responseData['userId']?.toString() ??
           'user_${DateTime.now().millisecondsSinceEpoch}',
       email: responseData['email']?.toString() ?? 'unknown@email.com',
-      name: responseData['name']?.toString() ?? 
-            responseData['namaLengkap']?.toString() ?? 
-            'User',
+      name: responseData['name']?.toString() ?? 'Google User',
       role: responseData['role']?.toString() ?? 'user',
     );
   }
 
   Future<void> resendOtp(String email) async {
     try {
-      print('🔄 Resending OTP to: $email');
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/send-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email}),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/send-otp'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'email': email}),
+          )
+          .timeout(const Duration(seconds: 15));
 
-      print('📡 Resend OTP Response: ${response.statusCode}');
-      print('📦 Resend OTP Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        print('✅ OTP resent successfully');
-      } else {
+      if (response.statusCode != 200) {
         final error = json.decode(response.body);
         throw Exception(error['message'] ?? 'Gagal mengirim ulang OTP');
       }
     } catch (e) {
-      print('❌ Resend OTP error: $e');
       throw Exception('Gagal mengirim ulang OTP: $e');
     }
   }
 }
-

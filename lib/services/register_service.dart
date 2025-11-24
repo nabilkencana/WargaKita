@@ -7,7 +7,7 @@ import '../models/register_model.dart';
 
 class RegisterService {
   static const String baseUrl =
-      'https://apiwarga.digicodes.my.id'; // iOS simulator
+      'https://wargakita.canadev.my.id'; // iOS simulator
 
   Future<RegisterResponse> register(
     RegisterRequest request, {

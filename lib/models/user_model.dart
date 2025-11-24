@@ -6,6 +6,7 @@ class User {
   final String? role;
   final String? otpCode;
   final DateTime? otpExpire;
+  final String? profilePicture;
 
   User({
     required this.id,
@@ -15,6 +16,7 @@ class User {
     this.role,
     this.otpCode,
     this.otpExpire,
+    this.profilePicture,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -48,6 +50,8 @@ class User {
       otpExpire: json['otpExpire'] != null
           ? DateTime.tryParse(json['otpExpire'].toString())
           : null,
+      profilePicture:
+          json['picture']?.toString() ?? json['fotoProfil']?.toString(),
     );
   }
 
@@ -64,6 +68,7 @@ class User {
       'phone': phone,
       'otpCode': otpCode,
       'otpExpire': otpExpire?.toIso8601String(),
+      'picture': profilePicture,
     };
   }
 }
@@ -96,8 +101,6 @@ class OtpResponse {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'message': message,
-    };
+    return {'message': message};
   }
 }

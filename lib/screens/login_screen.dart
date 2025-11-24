@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_latihan1/models/user_model.dart';
 import 'package:flutter_latihan1/screens/register_screen.dart';
+import 'package:flutter_latihan1/screens/home_screen.dart'; // Import home screen
 import '../services/auth_service.dart';
 import 'verify_otp_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen>
   final FocusNode _emailFocusNode = FocusNode();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false; // Loading khusus untuk Google
   bool _rememberMe = false;
 
   late AnimationController _controller;
@@ -27,7 +31,10 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+  }
 
+  void _initializeAnimations() {
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
@@ -68,19 +75,60 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
+      // Navigate ke OTP screen dulu
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => VerifyOtpScreen(email: email)),
       );
-      // ignore: body_might_complete_normally_catch_error
-      _authService.sendOtp(email).catchError((error) {
-        print('Error sending OTP: $error');
-      });
+
+      // Kemudian kirim OTP
+      await _authService.sendOtp(email);
     } catch (e) {
       _showError('Terjadi kesalahan: $e');
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  // 🔐 METHOD BARU: Google Sign In
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isGoogleLoading = true);
+
+    try {
+      print('🎯 Starting Google sign in process...');
+      final result = await _authService.signInWithGoogle();
+
+      print('✅ Google sign in successful!');
+      print('👤 User: ${result.user?.name}');
+      print('🔑 Token: ${result.accessToken != null ? '✓' : '✗'}');
+
+      // Simpan token dan user data (bisa menggunakan SharedPreferences)
+      _saveAuthData(result);
+
+      // Navigate ke home screen
+      _navigateToHome(result);
+    } catch (e) {
+      print('❌ Google sign in failed: $e');
+      _showError('Gagal login dengan Google: $e');
+    } finally {
+      setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  void _saveAuthData(AuthResponse result) {
+    // TODO: Implement penyimpanan token menggunakan SharedPreferences
+    print('💾 Saving auth data...');
+    print('   User ID: ${result.user?.id}');
+    print('   User Email: ${result.user?.email}');
+    print('   Access Token: ${result.accessToken}');
+  }
+
+  void _navigateToHome(AuthResponse result) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => HomeScreen(user: result.user!)),
+      (route) => false,
+    );
   }
 
   void _showError(String message) {
@@ -101,12 +149,29 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 4,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
             // ===== HEADER YANG DIPERBAIKI =====
@@ -220,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen>
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 40),
                           child: Text(
-                            'Masuk dengan Email atau daftar akun baru untuk memulai',
+                            'Masuk dengan Email atau Google untuk memulai',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.white70,
@@ -269,12 +334,14 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Tombol Google yang diperbaiki - FIXED
+                        // Tombol Google - SEKARANG AKTIF
                         SizedBox(
                           width: double.infinity,
                           height: 52,
                           child: OutlinedButton(
-                            onPressed: () {},
+                            onPressed: _isGoogleLoading
+                                ? null
+                                : _signInWithGoogle,
                             style: OutlinedButton.styleFrom(
                               backgroundColor: Colors.white,
                               side: BorderSide(
@@ -288,25 +355,34 @@ class _LoginScreenState extends State<LoginScreen>
                                 horizontal: 16,
                               ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Image.asset(
-                                  'assets/images/google.png',
-                                  width: 22,
-                                  height: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'Lanjutkan dengan Google',
-                                  style: TextStyle(
-                                    color: Colors.black87,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
+                            child: _isGoogleLoading
+                                ? SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Color(0xFF0D6EFD),
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Image.asset(
+                                        'assets/images/google.png',
+                                        width: 22,
+                                        height: 22,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Text(
+                                        'Lanjutkan dengan Google',
+                                        style: TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
 

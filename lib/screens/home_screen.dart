@@ -6,6 +6,7 @@ import '../services/announcement_service.dart';
 import 'sos_screen.dart';
 import 'laporan_screen.dart';
 import 'profile_screen.dart';
+import 'dana_screen.dart'; // Pastikan buat screen Dana
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -23,6 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
+  int _unreadNotifications = 3; // Counter notifikasi yang belum dibaca
+  List<Map<String, dynamic>> _notifications = []; // Daftar notifikasi
 
   // Daftar screen untuk bottom navigation
   final List<Widget> _screens = [];
@@ -31,23 +34,75 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _announcementsFuture = AnnouncementService.getAnnouncements();
-    // Inisialisasi screens setelah widget.user tersedia
+    _initializeNotifications();
+
+    // Inisialisasi screens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _screens.addAll([
           _buildHomeContent(),
           SosScreen(user: widget.user),
           LaporanScreen(user: widget.user),
-          ProfileScreen(user: widget.user),
+          DanaScreen(user: widget.user), // Ganti Profile dengan Dana
         ]);
       });
     });
-    _screens.addAll([
-      _buildHomeContent(),
-      SosScreen(user: widget.user),
-      LaporanScreen(user: widget.user),
-      ProfileScreen(user: widget.user),
-    ]);
+  }
+
+  // Inisialisasi data notifikasi
+  void _initializeNotifications() {
+    _notifications = [
+      {
+        'id': 1,
+        'icon': Icons.people_alt_rounded,
+        'title': 'Kerja Bakti Bersama',
+        'message': 'Anda telah bergabung dalam kegiatan kerja bakti',
+        'time': 'Baru saja',
+        'color': Colors.green,
+        'isRead': false,
+      },
+      {
+        'id': 2,
+        'icon': Icons.announcement_rounded,
+        'title': 'Pengumuman Baru',
+        'message': 'Ada pengumuman penting dari admin',
+        'time': '1 jam lalu',
+        'color': Colors.blue,
+        'isRead': false,
+      },
+      {
+        'id': 3,
+        'icon': Icons.warning_amber_rounded,
+        'title': 'Peringatan Cuaca',
+        'message': 'Hari ini diperkirakan hujan lebat',
+        'time': '2 jam lalu',
+        'color': Colors.orange,
+        'isRead': false,
+      },
+      {
+        'id': 4,
+        'icon': Icons.event_available_rounded,
+        'title': 'Acara Mendatang',
+        'message': 'Rapat warga akan dilaksanakan besok',
+        'time': '5 jam lalu',
+        'color': Colors.purple,
+        'isRead': true,
+      },
+      {
+        'id': 5,
+        'icon': Icons.security_rounded,
+        'title': 'Keamanan Lingkungan',
+        'message': 'Laporan keamanan telah diproses',
+        'time': '1 hari lalu',
+        'color': Colors.red,
+        'isRead': true,
+      },
+    ];
+
+    // Hitung notifikasi yang belum dibaca
+    _unreadNotifications = _notifications
+        .where((notif) => !notif['isRead'])
+        .length;
   }
 
   @override
@@ -124,6 +179,31 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // Method untuk menandai notifikasi sebagai sudah dibaca
+  void _markNotificationAsRead(int notificationId) {
+    setState(() {
+      for (var notif in _notifications) {
+        if (notif['id'] == notificationId && !notif['isRead']) {
+          notif['isRead'] = true;
+          _unreadNotifications--;
+          break;
+        }
+      }
+    });
+  }
+
+  // Method untuk menandai semua notifikasi sebagai sudah dibaca
+  void _markAllNotificationsAsRead() {
+    setState(() {
+      for (var notif in _notifications) {
+        if (!notif['isRead']) {
+          notif['isRead'] = true;
+        }
+      }
+      _unreadNotifications = 0;
+    });
+  }
+
   void _showNotifications() {
     showModalBottomSheet(
       context: context,
@@ -170,24 +250,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        '3 Baru',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                    if (_unreadNotifications > 0)
+                      GestureDetector(
+                        onTap: _markAllNotificationsAsRead,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$_unreadNotifications Baru',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -195,45 +279,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    _buildNotificationItem(
-                      Icons.people_alt_rounded,
-                      'Kerja Bakti Bersama',
-                      'Anda telah bergabung dalam kegiatan kerja bakti',
-                      'Baru saja',
-                      Colors.green,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNotificationItem(
-                      Icons.announcement_rounded,
-                      'Pengumuman Baru',
-                      'Ada pengumuman penting dari admin',
-                      '1 jam lalu',
-                      Colors.blue,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNotificationItem(
-                      Icons.warning_amber_rounded,
-                      'Peringatan Cuaca',
-                      'Hari ini diperkirakan hujan lebat',
-                      '2 jam lalu',
-                      Colors.orange,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNotificationItem(
-                      Icons.event_available_rounded,
-                      'Acara Mendatang',
-                      'Rapat warga akan dilaksanakan besok',
-                      '5 jam lalu',
-                      Colors.purple,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNotificationItem(
-                      Icons.security_rounded,
-                      'Keamanan Lingkungan',
-                      'Laporan keamanan telah diproses',
-                      '1 hari lalu',
-                      Colors.red,
-                    ),
+                    if (_notifications.isEmpty)
+                      _buildEmptyNotifications()
+                    else
+                      ..._notifications.map((notification) {
+                        return Column(
+                          children: [
+                            _buildNotificationItem(
+                              notification['icon'],
+                              notification['title'],
+                              notification['message'],
+                              notification['time'],
+                              notification['color'],
+                              notification['isRead'],
+                              notification['id'],
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        );
+                      }).toList(),
                   ],
                 ),
               ),
@@ -241,7 +305,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-    );
+    ).then((_) {
+      // Update badge count setelah modal ditutup
+      setState(() {
+        _unreadNotifications = _notifications
+            .where((notif) => !notif['isRead'])
+            .length;
+      });
+    });
   }
 
   Widget _buildNotificationItem(
@@ -250,57 +321,114 @@ class _HomeScreenState extends State<HomeScreen> {
     String message,
     String time,
     Color color,
+    bool isRead,
+    int notificationId,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              time,
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 10),
+    return GestureDetector(
+      onTap: () {
+        if (!isRead) {
+          _markNotificationAsRead(notificationId);
+        }
+        // Tambahkan aksi lain jika diperlukan
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        trailing: Container(
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            color: Colors.red,
-            shape: BoxShape.circle,
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
           ),
+          title: Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: isRead ? Colors.grey.shade600 : Colors.black87,
+            ),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message,
+                style: TextStyle(
+                  color: isRead ? Colors.grey.shade500 : Colors.grey.shade600,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                time,
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 10),
+              ),
+            ],
+          ),
+          trailing: !isRead
+              ? Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                )
+              : const SizedBox(width: 8),
         ),
       ),
+    );
+  }
+
+  Widget _buildEmptyNotifications() {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          Icon(
+            Icons.notifications_off_outlined,
+            color: Colors.grey.shade400,
+            size: 64,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Tidak ada notifikasi',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Notifikasi akan muncul di sini ketika ada pembaruan',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Method untuk membuka profile dari header
+  void _showProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ProfileScreen(user: widget.user)),
     );
   }
 
@@ -350,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+            child: const Text('Batal', style: TextStyle(color: Colors.red),),
           ),
           ElevatedButton(
             onPressed: () {
@@ -358,7 +486,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _showJoinSuccess();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Ya, Bergabung'),
+            child: const Text('Ya, Bergabung', style: TextStyle(color: Colors.white),),
           ),
         ],
       ),
@@ -386,11 +514,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final body = _currentIndex == 0
         ? _buildHomeContent()
-        : _screens[_currentIndex];    
-    return Scaffold(
-      body: body,
-      bottomNavigationBar: _buildBottomNavBar(),
-    );
+        : _screens[_currentIndex];
+    return Scaffold(body: body, bottomNavigationBar: _buildBottomNavBar());
   }
 
   Widget _buildLoadingState() {
@@ -535,22 +660,25 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Profile dengan design lebih bagus
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Colors.white, Colors.blue.shade100],
+              // Profile dengan design lebih bagus - DIFUNGSIKAN
+              GestureDetector(
+                onTap: _showProfile,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Colors.white, Colors.blue.shade100],
+                    ),
                   ),
-                ),
-                child: CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    color: Colors.blue.shade600,
-                    size: 24,
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.person,
+                      color: Colors.blue.shade600,
+                      size: 24,
+                    ),
                   ),
                 ),
               ),
@@ -571,30 +699,31 @@ class _HomeScreenState extends State<HomeScreen> {
                         size: 24,
                       ),
                     ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: const Text(
-                          '3',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                    if (_unreadNotifications > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
                           ),
-                          textAlign: TextAlign.center,
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            '$_unreadNotifications',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -602,7 +731,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            'Hai, ${widget.user.name?.split(' ')[0]}!',
+            'Hai, ${widget.user.name?.split(' ')[0] ?? 'User'}!',
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -1366,7 +1495,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // === BOTTOM NAV BAR ===
+  // === BOTTOM NAV BAR YANG DIPERBAIKI ===
   Widget _buildBottomNavBar() {
     return Container(
       height: 80,
@@ -1386,7 +1515,11 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildNavItem(Icons.home_filled, 'Home', 0),
           _buildNavItem(Icons.emergency_outlined, 'SOS', 1),
           _buildNavItem(Icons.report_outlined, 'Laporan', 2),
-          _buildNavItem(Icons.person_outline, 'Profil', 3),
+          _buildNavItem(
+            Icons.account_balance_wallet_outlined,
+            'Dana',
+            3,
+          ), // Ganti Profile dengan Dana
         ],
       ),
     );

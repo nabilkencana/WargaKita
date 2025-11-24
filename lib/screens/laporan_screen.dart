@@ -692,7 +692,7 @@ class _LaporanScreenState extends State<LaporanScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final uri = Uri.parse("https://apiwarga.digicodes.my.id/reports");
+      final uri = Uri.parse("https://wargakita.canadev.my.id/reports");
 
       var request = http.MultipartRequest("POST", uri);
 

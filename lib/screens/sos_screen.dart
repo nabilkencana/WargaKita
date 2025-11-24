@@ -176,7 +176,7 @@ class _SosScreenState extends State<SosScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+            child: const Text('Batal', style: TextStyle(color: Colors.red),),
           ),
           ElevatedButton(
             onPressed: () {
@@ -184,7 +184,7 @@ class _SosScreenState extends State<SosScreen> {
               // Implementasi panggilan telepon
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Hubungi'),
+            child: const Text('Hubungi' , style: TextStyle(color: Colors.white),),
           ),
         ],
       ),
