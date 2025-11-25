@@ -1,6 +1,9 @@
 // dana_screen.dart
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
+import '../models/transaction_model.dart';
+import '../services/transaction_service.dart';
 
 class DanaScreen extends StatefulWidget {
   final User user;
@@ -12,8 +15,212 @@ class DanaScreen extends StatefulWidget {
 }
 
 class _DanaScreenState extends State<DanaScreen> {
-  int _selectedFilter = 0; // 0: Semua, 1: Pemasukan, 2: Pengeluaran
+  int _selectedFilter = 0;
   final List<String> _filters = ['Semua', 'Pemasukan', 'Pengeluaran'];
+
+  TransactionService? _transactionService;
+  TransactionSummary? _summary;
+  List<Transaction> _transactions = [];
+  bool _isLoading = true;
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeService();
+    _loadData();
+  }
+
+  void _initializeService() {
+    try {
+      // Ganti dengan token yang sesungguhnya
+      final token =
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoibmFiaWxrZW5jYW5hMjBAZ21haWwuY29tIiwicm9sZSI6IlNVUEVSX0FETUlOIiwibmFtZSI6Ik5hYmlsIEFkbWluIiwiaWF0IjoxNzY0MDc5OTEyLCJleHAiOjE3NjQxNjYzMTJ9.HyAUvOl0TRV0WyCdzmt6UV2sK2DQS9ZU2xsOCJtzykA';
+
+      // Pastikan user ID valid
+      if (widget.user.id.isEmpty || widget.user.id == 'unknown_id') {
+        throw Exception('User ID tidak valid');
+      }
+
+      _transactionService = TransactionService(token);
+    } catch (e) {
+      print('❌ Error initializing service: $e');
+      setState(() {
+        _errorMessage = 'Gagal menginisialisasi service: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
+
+      // Method 1: Coba get summary dari debug endpoint (yang work)
+      try {
+        final debugSummary = await _transactionService!.getSummaryFromDebug();
+        setState(() {
+          _summary = debugSummary;
+        });
+        print('✅ Got summary from debug endpoint: ${debugSummary.balance}');
+      } catch (e) {
+        print('⚠️  Cannot get debug summary: $e');
+        // Fallback ke getSummary biasa
+        final normalSummary = await _transactionService!.getSummary();
+        setState(() {
+          _summary = normalSummary;
+        });
+      }
+
+      // Method 2: Coba get transactions (tapi handle error gracefully)
+      try {
+        final transactionsResponse = await _transactionService!.getTransactions(
+          limit: 50,
+        );
+        setState(() {
+          _transactions = transactionsResponse.transactions;
+        });
+        print('✅ Got ${_transactions.length} transactions');
+      } catch (e) {
+        print('⚠️  Cannot get transactions: $e');
+        // Transactions optional, bisa kosong
+        setState(() {
+          _transactions = [];
+        });
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Debug final state
+      print('🎯 FINAL STATE:');
+      print('   - Summary Balance: ${_summary?.balance}');
+      print('   - Transactions Count: ${_transactions.length}');
+      print('   - Real-time Balance: ${_realTimeSummary.balance}');
+    } catch (e) {
+      print('❌ Error loading data: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Gagal memuat data: $e';
+      });
+    }
+  }
+
+  Future<void> _refreshData() async {
+    await _loadData();
+  }
+
+  // Filter transactions berdasarkan pilihan
+  List<Transaction> get _filteredTransactions {
+    if (_selectedFilter == 0) return _transactions;
+    if (_selectedFilter == 1) {
+      return _transactions.where((t) => t.isIncome).toList();
+    }
+    return _transactions.where((t) => t.isExpense).toList();
+  }
+
+  // Di DanaScreen - Test dengan debug endpoints
+  // Di _DanaScreenState - Tambahkan debug yang lebih detail
+
+  Future<void> _debugFinancialSummary() async {
+    try {
+      print('🔍 COMPREHENSIVE FINANCIAL DEBUG');
+
+      // 1. Get ALL transactions untuk melihat data sebenarnya
+      final allTransactions = await _transactionService!.getTransactions(
+        limit: 100,
+      );
+      print(
+        '📋 ALL TRANSACTIONS (${allTransactions.transactions.length} items):',
+      );
+
+      double manualIncome = 0;
+      double manualExpense = 0;
+
+      for (final transaction in allTransactions.transactions) {
+        print(
+          '   - ${transaction.description}: ${transaction.amount} (${transaction.type}) - ${transaction.date}',
+        );
+        if (transaction.isIncome) {
+          manualIncome += transaction.amount;
+        } else {
+          manualExpense += transaction.amount;
+        }
+      }
+
+      print('🧮 MANUAL CALCULATION:');
+      print('   - Income: $manualIncome');
+      print('   - Expense: $manualExpense');
+      print('   - Balance: ${manualIncome - manualExpense}');
+
+      // 2. Get summary dari API
+      final apiSummary = await _transactionService!.getSummary();
+      print('📊 API SUMMARY:');
+      print('   - Income: ${apiSummary.totalIncome}');
+      print('   - Expense: ${apiSummary.totalExpense}');
+      print('   - Balance: ${apiSummary.balance}');
+
+      // 3. Get debug summary dari backend
+      try {
+        final debugSummary = await _transactionService!.getDebugSummary();
+        print('🐛 BACKEND DEBUG SUMMARY:');
+        print(
+          '   - Transaction Summary: ${debugSummary['transactionSummary']}',
+        );
+        print('   - Financial Summary: ${debugSummary['financialSummary']}');
+        print('   - Match: ${debugSummary['match']}');
+      } catch (e) {
+        print('⚠️  Debug endpoint not available: $e');
+      }
+
+      // 4. Check jika ada perbedaan
+      if (apiSummary.totalIncome != manualIncome ||
+          apiSummary.totalExpense != manualExpense) {
+        print('🚨 DATA MISMATCH DETECTED!');
+        print(
+          '   - Manual vs API Income: $manualIncome vs ${apiSummary.totalIncome}',
+        );
+        print(
+          '   - Manual vs API Expense: $manualExpense vs ${apiSummary.totalExpense}',
+        );
+      }
+    } catch (e) {
+      print('❌ Debug failed: $e');
+    }
+  }
+
+  TransactionSummary get _realTimeSummary {
+    double totalIncome = 0;
+    double totalExpense = 0;
+    int transactionCount = _transactions.length;
+
+    for (final transaction in _transactions) {
+      if (transaction.type.toUpperCase() == 'INCOME') {
+        totalIncome += transaction.amount;
+      } else if (transaction.type.toUpperCase() == 'EXPENSE') {
+        totalExpense += transaction.amount;
+      }
+    }
+
+    final balance = totalIncome - totalExpense;
+
+    print('🔄 REAL-TIME CALCULATION:');
+    print('   - Income: $totalIncome');
+    print('   - Expense: $totalExpense');
+    print('   - Balance: $balance');
+    print('   - Count: $transactionCount');
+
+    return TransactionSummary(
+      totalIncome: totalIncome,
+      totalExpense: totalExpense,
+      balance: balance,
+      transactionCount: transactionCount,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +247,91 @@ class _DanaScreenState extends State<DanaScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: _isLoading
+          ? _buildLoadingIndicator()
+          : _errorMessage.isNotEmpty
+          ? _buildErrorWidget()
+          : _buildMainContent(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showQuickTransactionMenu(context),
+        backgroundColor: Colors.blue.shade600,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        child: const Icon(Icons.add, size: 28),
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Memuat data...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Container(
+          height: MediaQuery.of(context).size.height,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _loadData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    // Prioritaskan data yang available
+    final double displayBalance = _transactions.isNotEmpty
+        ? _realTimeSummary.balance
+        : (_summary?.balance ?? 0);
+
+    final double displayIncome = _transactions.isNotEmpty
+        ? _realTimeSummary.totalIncome
+        : (_summary?.totalIncome ?? 0);
+
+    final double displayExpense = _transactions.isNotEmpty
+        ? _realTimeSummary.totalExpense
+        : (_summary?.totalExpense ?? 0);
+
+    String dataSource = 'Kalkulasi Real-time';
+    if (_transactions.isEmpty && _summary != null) {
+      dataSource = 'API Summary';
+    } else if (_transactions.isNotEmpty) {
+      dataSource = 'Data Langsung';
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      child: Column(
         children: [
           // Header dengan Saldo
           Container(
@@ -72,10 +363,12 @@ class _DanaScreenState extends State<DanaScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Rp 15.000.000',
+                    Text(
+                      'Rp ${_formatCurrency(displayBalance)}',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: displayBalance >= 0
+                            ? Colors.white
+                            : Colors.red.shade200,
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
                       ),
@@ -86,6 +379,14 @@ class _DanaScreenState extends State<DanaScreen> {
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 12,
+                      ),
+                    ),
+                    // Tampilkan sumber data
+                    Text(
+                      dataSource,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 10,
                       ),
                     ),
                   ],
@@ -104,7 +405,7 @@ class _DanaScreenState extends State<DanaScreen> {
                     children: [
                       _buildFinanceItem(
                         'Pemasukan',
-                        'Rp 20.000.000',
+                        'Rp ${_formatCurrency(displayIncome)}',
                         Icons.arrow_downward,
                         Colors.green.shade100,
                         Colors.green,
@@ -117,7 +418,7 @@ class _DanaScreenState extends State<DanaScreen> {
                       ),
                       _buildFinanceItem(
                         'Pengeluaran',
-                        'Rp 5.000.000',
+                        'Rp ${_formatCurrency(displayExpense)}',
                         Icons.arrow_upward,
                         Colors.red.shade100,
                         Colors.red,
@@ -128,6 +429,33 @@ class _DanaScreenState extends State<DanaScreen> {
               ],
             ),
           ),
+
+          // Tampilkan warning jika ada masalah data
+          if (_transactions.isEmpty && _summary?.balance == 0)
+            Container(
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Colors.orange.shade600, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Data transaksi sedang tidak dapat diakses. Saldo ditampilkan dari summary terakhir.',
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Quick Actions
           Container(
@@ -162,18 +490,18 @@ class _DanaScreenState extends State<DanaScreen> {
                   () => _showPaymentDialog(context),
                 ),
                 _buildActionButton(
-                  Icons.upload,
-                  'Transfer',
+                  Icons.bar_chart,
+                  'Refresh',
                   Colors.blue.shade50,
                   Colors.blue,
-                  () => _showTransferDialog(context),
+                  _refreshData,
                 ),
                 _buildActionButton(
-                  Icons.bar_chart,
-                  'Laporan',
-                  Colors.purple.shade50,
-                  Colors.purple,
-                  () => _showReportDialog(context),
+                  Icons.bug_report,
+                  'Debug',
+                  Colors.orange.shade50,
+                  Colors.orange,
+                  _debugFinancialSummary,
                 ),
               ],
             ),
@@ -268,73 +596,48 @@ class _DanaScreenState extends State<DanaScreen> {
 
           // List Transaksi
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _buildTransactionItem(
-                    'Iuran Bulanan Desember',
-                    'Rp 50.000',
-                    '1 Des 2024 • 08:30',
-                    true,
-                    Icons.account_balance_wallet,
-                    'Pemasukan Rutin',
-                  ),
-                  _buildTransactionItem(
-                    'Perbaikan Jalan RT 05',
-                    'Rp 2.000.000',
-                    '30 Nov 2024 • 14:20',
-                    false,
-                    Icons.construction,
-                    'Pembangunan',
-                  ),
-                  _buildTransactionItem(
-                    'Acara Hari Besar Nasional',
-                    'Rp 1.500.000',
-                    '25 Nov 2024 • 10:15',
-                    false,
-                    Icons.celebration,
-                    'Kegiatan',
-                  ),
-                  _buildTransactionItem(
-                    'Iuran Bulanan November',
-                    'Rp 50.000',
-                    '1 Nov 2024 • 09:45',
-                    true,
-                    Icons.account_balance_wallet,
-                    'Pemasukan Rutin',
-                  ),
-                  _buildTransactionItem(
-                    'Pembelian Perlengkapan',
-                    'Rp 750.000',
-                    '28 Okt 2024 • 16:30',
-                    false,
-                    Icons.shopping_cart,
-                    'Operasional',
-                  ),
-                  _buildTransactionItem(
-                    'Sumbangan Warga',
-                    'Rp 1.000.000',
-                    '25 Okt 2024 • 11:20',
-                    true,
-                    Icons.volunteer_activism,
-                    'Donasi',
-                  ),
-                ],
-              ),
-            ),
+            child: _transactions.isNotEmpty
+                ? _buildTransactionList()
+                : _buildEmptyState(),
           ),
         ],
       ),
+    );
+  }
 
-      // Floating Action Button untuk transaksi cepat
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showQuickTransactionMenu(context),
-        backgroundColor: Colors.blue.shade600,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        child: const Icon(Icons.add, size: 28),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade400),
+          SizedBox(height: 16),
+          Text(
+            'Tidak ada data transaksi',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Transaksi akan muncul di sini ketika tersedia',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+          ),
+          SizedBox(height: 16),
+          ElevatedButton(onPressed: _refreshData, child: Text('Coba Lagi')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionList() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ListView.builder(
+        physics: const BouncingScrollPhysics(),
+        itemCount: _transactions.length,
+        itemBuilder: (context, index) {
+          final transaction = _transactions[index];
+          return _buildTransactionItem(transaction);
+        },
       ),
     );
   }
@@ -417,14 +720,11 @@ class _DanaScreenState extends State<DanaScreen> {
     );
   }
 
-  Widget _buildTransactionItem(
-    String title,
-    String amount,
-    String date,
-    bool isIncome,
-    IconData icon,
-    String category,
-  ) {
+  // Pastikan juga _buildTransactionItem ada (seharusnya sudah ada dari kode sebelumnya)
+  Widget _buildTransactionItem(Transaction transaction) {
+    final icon = _getTransactionIcon(transaction.category);
+    final category = transaction.category;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -445,12 +745,16 @@ class _DanaScreenState extends State<DanaScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
+              color: transaction.isIncome
+                  ? Colors.green.shade50
+                  : Colors.red.shade50,
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              color: isIncome ? Colors.green.shade600 : Colors.red.shade600,
+              color: transaction.isIncome
+                  ? Colors.green.shade600
+                  : Colors.red.shade600,
               size: 20,
             ),
           ),
@@ -460,7 +764,7 @@ class _DanaScreenState extends State<DanaScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  transaction.description,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
@@ -491,7 +795,7 @@ class _DanaScreenState extends State<DanaScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      date,
+                      '${_formatDate(transaction.date)} • ${_formatTime(transaction.date)}',
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 12,
@@ -506,16 +810,18 @@ class _DanaScreenState extends State<DanaScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                amount,
+                transaction.formattedAmount,
                 style: TextStyle(
-                  color: isIncome ? Colors.green.shade600 : Colors.red.shade600,
+                  color: transaction.isIncome
+                      ? Colors.green.shade600
+                      : Colors.red.shade600,
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                isIncome ? 'Pemasukan' : 'Pengeluaran',
+                transaction.isIncome ? 'Pemasukan' : 'Pengeluaran',
                 style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
               ),
             ],
@@ -525,9 +831,32 @@ class _DanaScreenState extends State<DanaScreen> {
     );
   }
 
+  // Tambahkan method ini jika belum ada
+  String _formatCurrency(double amount) {
+    // Handle negative numbers
+    final absoluteAmount = amount.abs();
+    final formatted = absoluteAmount
+        .toStringAsFixed(0)
+        .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        );
+
+    return amount < 0 ? '-$formatted' : formatted;
+  }
+
   String _getCurrentDate() {
     final now = DateTime.now();
-    return '${now.day} ${_getMonthName(now.month)} ${now.year}';
+    return _formatDate(now);
+  }
+
+  // Helper methods yang diperlukan
+  String _formatDate(DateTime date) {
+    return '${date.day} ${_getMonthName(date.month)} ${date.year}';
+  }
+
+  String _formatTime(DateTime date) {
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   String _getMonthName(int month) {
@@ -546,6 +875,23 @@ class _DanaScreenState extends State<DanaScreen> {
       'Des',
     ];
     return months[month - 1];
+  }
+
+  IconData _getTransactionIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'iuran':
+        return Icons.account_balance_wallet;
+      case 'pembangunan':
+        return Icons.construction;
+      case 'kegiatan':
+        return Icons.celebration;
+      case 'operasional':
+        return Icons.shopping_cart;
+      case 'donasi':
+        return Icons.volunteer_activism;
+      default:
+        return Icons.receipt;
+    }
   }
 
   // === FUNGSI DIALOG DAN ACTION ===
@@ -652,6 +998,7 @@ class _DanaScreenState extends State<DanaScreen> {
   void _showAddIncomeDialog(BuildContext context) {
     final amountController = TextEditingController();
     final descriptionController = TextEditingController();
+    String? selectedCategory = 'Iuran';
 
     showDialog(
       context: context,
@@ -681,6 +1028,7 @@ class _DanaScreenState extends State<DanaScreen> {
               controller: amountController,
               decoration: InputDecoration(
                 labelText: 'Jumlah',
+                hintText: 'Contoh: 50000',
                 prefixText: 'Rp ',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -697,6 +1045,7 @@ class _DanaScreenState extends State<DanaScreen> {
               controller: descriptionController,
               decoration: InputDecoration(
                 labelText: 'Keterangan',
+                hintText: 'Contoh: Iuran Bulan Desember',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -705,6 +1054,29 @@ class _DanaScreenState extends State<DanaScreen> {
                   color: Colors.green.shade600,
                 ),
               ),
+              maxLength: 100,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedCategory,
+              decoration: InputDecoration(
+                labelText: 'Kategori',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefixIcon: Icon(Icons.category, color: Colors.green.shade600),
+              ),
+              items: ['Iuran', 'Donasi', 'Sumbangan', 'Lainnya']
+                  .map(
+                    (category) => DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                selectedCategory = value;
+              },
             ),
           ],
         ),
@@ -714,11 +1086,53 @@ class _DanaScreenState extends State<DanaScreen> {
             child: Text('Batal', style: TextStyle(color: Colors.grey.shade600)),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (amountController.text.isNotEmpty &&
-                  descriptionController.text.isNotEmpty) {
-                _showSuccessSnackbar(context, 'Pemasukan berhasil ditambahkan');
+            onPressed: () async {
+              final amountText = amountController.text.trim();
+              final descriptionText = descriptionController.text.trim();
+
+              // Validasi input
+              if (amountText.isEmpty) {
+                _showErrorSnackbar(context, 'Harap masukkan jumlah');
+                return;
+              }
+
+              if (descriptionText.isEmpty) {
+                _showErrorSnackbar(context, 'Harap masukkan keterangan');
+                return;
+              }
+
+              final amount = double.tryParse(amountText);
+              if (amount == null || amount <= 0) {
+                _showErrorSnackbar(context, 'Jumlah tidak valid');
+                return;
+              }
+
+              try {
+                setState(() {
+                  _isLoading = true;
+                });
+
+                // Tutup dialog dulu
                 Navigator.pop(context);
+
+                await _transactionService!.createTransaction(
+                  amount: amount,
+                  type: 'INCOME',
+                  category: selectedCategory!,
+                  description: descriptionText,
+                  userId: widget.user.id,
+                );
+
+                _showSuccessSnackbar(context, 'Pemasukan berhasil ditambahkan');
+
+                // Refresh data
+                await _refreshData();
+              } catch (e) {
+                _showErrorSnackbar(context, 'Gagal menambah pemasukan: $e');
+              } finally {
+                setState(() {
+                  _isLoading = false;
+                });
               }
             },
             style: ElevatedButton.styleFrom(
@@ -737,6 +1151,7 @@ class _DanaScreenState extends State<DanaScreen> {
   void _showPaymentDialog(BuildContext context) {
     final amountController = TextEditingController();
     final descriptionController = TextEditingController();
+    String? selectedCategory = 'Operasional';
 
     showDialog(
       context: context,
@@ -788,6 +1203,28 @@ class _DanaScreenState extends State<DanaScreen> {
                 prefixIcon: Icon(Icons.description, color: Colors.red.shade600),
               ),
             ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedCategory,
+              decoration: InputDecoration(
+                labelText: 'Kategori',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefixIcon: Icon(Icons.category, color: Colors.red.shade600),
+              ),
+              items: ['Operasional', 'Pembangunan', 'Kegiatan', 'Lainnya']
+                  .map(
+                    (category) => DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                selectedCategory = value;
+              },
+            ),
           ],
         ),
         actions: [
@@ -796,11 +1233,27 @@ class _DanaScreenState extends State<DanaScreen> {
             child: Text('Batal', style: TextStyle(color: Colors.grey.shade600)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (amountController.text.isNotEmpty &&
                   descriptionController.text.isNotEmpty) {
-                _showSuccessSnackbar(context, 'Pengeluaran berhasil dicatat');
-                Navigator.pop(context);
+                try {
+                  final amount = double.tryParse(amountController.text) ?? 0;
+                  await _transactionService!.createTransaction(
+                    amount: amount,
+                    type: 'EXPENSE',
+                    category: selectedCategory!,
+                    description: descriptionController.text,
+                    userId: widget.user.id,
+                  );
+
+                  _showSuccessSnackbar(context, 'Pengeluaran berhasil dicatat');
+                  Navigator.pop(context);
+                  await _refreshData(); // Refresh data setelah berhasil
+                } catch (e) {
+                  _showErrorSnackbar(context, 'Gagal mencatat pengeluaran: $e');
+                }
+              } else {
+                _showErrorSnackbar(context, 'Harap isi semua field');
               }
             },
             style: ElevatedButton.styleFrom(
@@ -875,18 +1328,42 @@ class _DanaScreenState extends State<DanaScreen> {
                 Icons.download,
                 'Ekspor Data',
                 'Unduh laporan keuangan',
+                () => _showInfoDialog(
+                  context,
+                  'Ekspor Data',
+                  'Fitur ekspor data akan segera hadir.',
+                ),
               ),
               _buildOptionItem(
                 Icons.print,
                 'Cetak Laporan',
                 'Print ringkasan keuangan',
+                () => _showInfoDialog(
+                  context,
+                  'Cetak Laporan',
+                  'Fitur cetak laporan akan segera hadir.',
+                ),
               ),
               _buildOptionItem(
                 Icons.notifications,
                 'Notifikasi',
                 'Pengaturan notifikasi',
+                () => _showInfoDialog(
+                  context,
+                  'Notifikasi',
+                  'Pengaturan notifikasi akan segera hadir.',
+                ),
               ),
-              _buildOptionItem(Icons.help, 'Bantuan', 'Pusat bantuan dana'),
+              _buildOptionItem(
+                Icons.help,
+                'Bantuan',
+                'Pusat bantuan dana',
+                () => _showInfoDialog(
+                  context,
+                  'Bantuan',
+                  'Pusat bantuan akan segera hadir.',
+                ),
+              ),
               const SizedBox(height: 20),
             ],
           ),
@@ -895,7 +1372,12 @@ class _DanaScreenState extends State<DanaScreen> {
     );
   }
 
-  Widget _buildOptionItem(IconData icon, String title, String subtitle) {
+  Widget _buildOptionItem(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+  ) {
     return ListTile(
       leading: Container(
         width: 40,
@@ -913,7 +1395,7 @@ class _DanaScreenState extends State<DanaScreen> {
         size: 16,
         color: Colors.grey.shade400,
       ),
-      onTap: () {},
+      onTap: onTap,
     );
   }
 
@@ -945,7 +1427,7 @@ class _DanaScreenState extends State<DanaScreen> {
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white),
+            const Icon(Icons.check_circle, color: Colors.white),
             const SizedBox(width: 8),
             Expanded(child: Text(message)),
           ],
@@ -954,6 +1436,24 @@ class _DanaScreenState extends State<DanaScreen> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showErrorSnackbar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

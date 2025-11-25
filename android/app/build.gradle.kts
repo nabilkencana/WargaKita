@@ -28,9 +28,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        applicationId = "flutter_latihan1"
-        minSdkVersion 21
-        targetSdkVersion 33
     }
 
     buildTypes {
