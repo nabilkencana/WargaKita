@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_latihan1/models/user_model.dart';
 import 'package:flutter_latihan1/screens/register_screen.dart';
-import 'package:flutter_latihan1/screens/home_screen.dart'; // Import home screen
+import 'package:flutter_latihan1/screens/home_screen.dart';
 import '../services/auth_service.dart';
 import 'verify_otp_screen.dart';
-
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen>
   final FocusNode _emailFocusNode = FocusNode();
 
   bool _isLoading = false;
-  bool _isGoogleLoading = false; // Loading khusus untuk Google
+  bool _isGoogleLoading = false;
   bool _rememberMe = false;
 
   late AnimationController _controller;
@@ -32,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen>
   void initState() {
     super.initState();
     _initializeAnimations();
+    _checkExistingGoogleUser();
   }
 
   void _initializeAnimations() {
@@ -60,8 +60,283 @@ class _LoginScreenState extends State<LoginScreen>
     _controller.forward();
   }
 
+  // 🎯 METHOD BARU: Cek apakah sudah ada user Google yang login
+  Future<void> _checkExistingGoogleUser() async {
+    try {
+      final currentUser = await _authService.getCurrentGoogleUser();
+      if (currentUser != null) {
+        print('🔍 Found existing Google user: ${currentUser.email}');
+        // Bisa tambahkan auto-login di sini jika diperlukan
+      }
+    } catch (e) {
+      print('⚠️ Error checking existing Google user: $e');
+    }
+  }
+
   Future<void> _sendOtp() async {
     final email = _emailController.text.trim();
+
+    // Validasi email kosong
+    if (email.isEmpty) {
+      _showError('Email tidak boleh kosong');
+      return;
+    }
+
+    // Validasi format email
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _showError('Format email tidak valid');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Kirim OTP langsung - backend akan handle validasi email
+      final otpResponse = await _authService.sendOtp(email);
+
+      _showSuccess('OTP telah dikirim ke $email');
+
+      // Navigate ke OTP screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VerifyOtpScreen(
+            email: email,
+            onResendOtp: () => _resendOtp(email),
+          ),
+        ),
+      );
+    } catch (e) {
+      // Handle error khusus untuk email tidak ditemukan
+      if (e.toString().contains('Email tidak ditemukan')) {
+        _showEmailNotRegisteredDialog(email);
+      } else {
+        _showError('Gagal mengirim OTP: $e');
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // 🎯 METHOD BARU: Resend OTP
+  Future<void> _resendOtp(String email) async {
+    try {
+      await _authService.resendOtp(email);
+      _showSuccess('OTP berhasil dikirim ulang');
+    } catch (e) {
+      _showError('Gagal mengirim ulang OTP: $e');
+    }
+  }
+
+  // 🔐 GOOGLE SIGN IN - DENGAN VALIDASI EMAIL
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isGoogleLoading = true);
+
+    try {
+      print('🎯 Starting Google sign in process...');
+
+      final AuthResponse result = await _authService.signInWithGoogle();
+
+      if (result.user != null) {
+        print('✅ Google sign in successful!');
+        print('👤 User: ${result.user?.name}');
+        print('📧 Email: ${result.user?.email}');
+        print('🔑 Token: ${result.accessToken != null ? '✓' : '✗'}');
+
+        _showSuccess('Login dengan Google berhasil!');
+
+        // Simpan data auth
+        _saveAuthData(result);
+
+        // Navigate ke home screen
+        _navigateToHome(result);
+      } else {
+        throw Exception('User data tidak ditemukan dari backend');
+      }
+    } catch (e) {
+      print('❌ Google sign in failed: $e');
+
+      // Handle error spesifik untuk Google Sign In
+      if (e.toString().contains('ApiException: 10')) {
+        _showGooglePlayServicesError();
+      } else {
+        _showGoogleSignInError(e);
+      }
+    } finally {
+      setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  // 🎯 METHOD BARU: Handle error Google Play Services
+  void _showGooglePlayServicesError() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Google Play Services Required'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Google Play Services tidak tersedia atau perlu diupdate.',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 12),
+              Text('Pastikan:', style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
+              Text('• Google Play Services terinstall'),
+              Text('• Koneksi internet stabil'),
+              Text('• Device support Google Play'),
+            ],
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Tutup'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Bisa tambahkan logika untuk membuka Play Store
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF0D6EFD),
+              ),
+              child: Text('Buka Play Store'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 🎯 METHOD BARU: Dialog email tidak terdaftar
+  void _showEmailNotRegisteredDialog(String email) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.person_add_alt_1, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('Email Tidak Terdaftar'),
+            ],
+          ),
+          content: Text(
+            'Email $email belum terdaftar di sistem. Apakah Anda ingin mendaftar dengan email ini?',
+            style: TextStyle(fontSize: 14),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Coba Email Lain',
+                style: TextStyle(color: const Color.fromARGB(255, 94, 94, 94)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToRegisterWithEmail(email);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF0D6EFD),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text('Daftar Sekarang' , style: TextStyle(color: Colors.white),),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 🎯 METHOD BARU: Navigasi ke register dengan email yang sudah terisi
+  void _navigateToRegisterWithEmail(String email) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RegisterScreen(prefilledEmail: email),
+      ),
+    );
+  }
+
+  // 🎯 METHOD BARU: Handle error Google Sign In yang lebih spesifik
+  void _showGoogleSignInError(dynamic error) {
+    String errorMessage;
+
+    if (error.toString().contains('sign_in_failed')) {
+      errorMessage =
+          'Google Sign-In gagal. Pastikan Google Play Services terinstall dan updated.';
+    } else if (error.toString().contains('network_error') ||
+        error.toString().contains('Koneksi internet bermasalah')) {
+      errorMessage = 'Koneksi internet bermasalah. Periksa koneksi Anda.';
+    } else if (error.toString().contains('Timeout')) {
+      errorMessage = 'Server tidak merespons. Coba lagi nanti.';
+    } else if (error.toString().contains('INVALID_ACCOUNT')) {
+      errorMessage = 'Akun Google tidak valid.';
+    } else if (error.toString().contains('dibatalkan')) {
+      errorMessage = 'Login dengan Google dibatalkan.';
+      return; // Tidak perlu show error untuk cancel
+    } else if (error.toString().contains('Email tidak ditemukan')) {
+      errorMessage =
+          'Akun Google belum terdaftar. Silakan daftar terlebih dahulu.';
+    } else {
+      errorMessage =
+          'Gagal login dengan Google: ${error.toString().replaceAll('Exception: ', '')}';
+    }
+
+    _showError(errorMessage);
+  }
+
+  void _saveAuthData(AuthResponse result) {
+    // TODO: Implement penyimpanan token menggunakan SharedPreferences
+    print('💾 Saving auth data...');
+    print('   User ID: ${result.user?.id}');
+    print('   User Email: ${result.user?.email}');
+    print('   User Name: ${result.user?.name}');
+    print('   User Role: ${result.user?.role}');
+    print('   Access Token: ${result.accessToken}');
+
+    // Simpan remember me preference
+    if (_rememberMe) {
+      print('💾 Remember me: true');
+      // TODO: Simpan ke SharedPreferences
+    }
+  }
+
+  void _navigateToHome(AuthResponse result) {
+    if (result.user != null) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen(user: result.user!)),
+        (route) => false,
+      );
+    } else {
+      _showError('Data user tidak valid');
+    }
+  }
+
+  // 🎯 METHOD BARU: Validasi email sebelum login
+  void _validateEmailAndProceed() {
+    final email = _emailController.text.trim();
+
     if (email.isEmpty) {
       _showError('Email tidak boleh kosong');
       return;
@@ -72,66 +347,12 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    try {
-      // Navigate ke OTP screen dulu
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => VerifyOtpScreen(email: email)),
-      );
-
-      // Kemudian kirim OTP
-      await _authService.sendOtp(email);
-    } catch (e) {
-      _showError('Terjadi kesalahan: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  // 🔐 METHOD BARU: Google Sign In
-  Future<void> _signInWithGoogle() async {
-    setState(() => _isGoogleLoading = true);
-
-    try {
-      print('🎯 Starting Google sign in process...');
-      final result = await _authService.signInWithGoogle();
-
-      print('✅ Google sign in successful!');
-      print('👤 User: ${result.user?.name}');
-      print('🔑 Token: ${result.accessToken != null ? '✓' : '✗'}');
-
-      // Simpan token dan user data (bisa menggunakan SharedPreferences)
-      _saveAuthData(result);
-
-      // Navigate ke home screen
-      _navigateToHome(result);
-    } catch (e) {
-      print('❌ Google sign in failed: $e');
-      _showError('Gagal login dengan Google: $e');
-    } finally {
-      setState(() => _isGoogleLoading = false);
-    }
-  }
-
-  void _saveAuthData(AuthResponse result) {
-    // TODO: Implement penyimpanan token menggunakan SharedPreferences
-    print('💾 Saving auth data...');
-    print('   User ID: ${result.user?.id}');
-    print('   User Email: ${result.user?.email}');
-    print('   Access Token: ${result.accessToken}');
-  }
-
-  void _navigateToHome(AuthResponse result) {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => HomeScreen(user: result.user!)),
-      (route) => false,
-    );
+    _sendOtp();
   }
 
   void _showError(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -145,11 +366,14 @@ class _LoginScreenState extends State<LoginScreen>
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 4,
+        duration: Duration(seconds: 4),
       ),
     );
   }
 
   void _showSuccess(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -163,6 +387,7 @@ class _LoginScreenState extends State<LoginScreen>
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 4,
+        duration: Duration(seconds: 3),
       ),
     );
   }
@@ -174,10 +399,9 @@ class _LoginScreenState extends State<LoginScreen>
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ===== HEADER YANG DIPERBAIKI =====
+            // HEADER
             Stack(
               children: [
-                // Background Gradient dengan efek gelombang
                 Container(
                   width: double.infinity,
                   height: 300,
@@ -193,51 +417,6 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                 ),
-
-                // Pattern overlay
-                Positioned.fill(
-                  child: Opacity(
-                    opacity: 0.08,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        image: DecorationImage(
-                          image: AssetImage('assets/images/grid_pattern.png'),
-                          repeat: ImageRepeat.repeat,
-                          scale: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Efek gelembung
-                Positioned(
-                  top: -20,
-                  right: -20,
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.1),
-                    ),
-                  ),
-                ),
-
-                Positioned(
-                  bottom: 30,
-                  left: -30,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.1),
-                    ),
-                  ),
-                ),
-
-                // Konten header
                 Positioned.fill(
                   child: ScaleTransition(
                     scale: _headerScaleAnimation,
@@ -302,7 +481,7 @@ class _LoginScreenState extends State<LoginScreen>
               ],
             ),
 
-            // ===== FORM CARD YANG DIPERBAIKI =====
+            // FORM CARD
             SlideTransition(
               position: _slideAnimation,
               child: FadeTransition(
@@ -334,7 +513,7 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Tombol Google - SEKARANG AKTIF
+                        // Tombol Google - DENGAN ERROR HANDLING
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -388,7 +567,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                         const SizedBox(height: 24),
 
-                        // Divider yang diperbaiki
+                        // Divider
                         Row(
                           children: [
                             Expanded(
@@ -423,7 +602,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                         const SizedBox(height: 24),
 
-                        // Input email yang diperbaiki
+                        // Input email
                         Text(
                           'Alamat Email',
                           style: TextStyle(
@@ -483,12 +662,13 @@ class _LoginScreenState extends State<LoginScreen>
                               fontWeight: FontWeight.w500,
                               color: Colors.grey.shade800,
                             ),
+                            onSubmitted: (_) => _validateEmailAndProceed(),
                           ),
                         ),
 
                         const SizedBox(height: 16),
 
-                        // Checkbox Ingat Saya yang diperbaiki
+                        // Checkbox Ingat Saya
                         Row(
                           children: [
                             Transform.scale(
@@ -523,7 +703,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                         const SizedBox(height: 20),
 
-                        // Tombol Masuk yang diperbaiki - FIXED
+                        // Tombol Masuk
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -571,7 +751,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                         const SizedBox(height: 20),
 
-                        // Tombol Daftar yang diperbaiki - FIXED
+                        // Tombol Daftar
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -601,41 +781,6 @@ class _LoginScreenState extends State<LoginScreen>
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF0D6EFD),
                                 letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Footer teks yang diperbaiki
-                        Center(
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const RegisterScreen(),
-                                ),
-                              );
-                            },
-                            child: RichText(
-                              text: TextSpan(
-                                text: 'Tidak mempunyai akun? ',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                children: const [
-                                  TextSpan(
-                                    text: 'Daftar Sekarang!',
-                                    style: TextStyle(
-                                      color: Color(0xFF0D6EFD),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
                           ),

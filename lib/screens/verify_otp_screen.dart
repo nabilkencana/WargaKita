@@ -6,7 +6,7 @@ import 'home_screen.dart';
 class VerifyOtpScreen extends StatefulWidget {
   final String email;
 
-  const VerifyOtpScreen({super.key, required this.email});
+  const VerifyOtpScreen({super.key, required this.email, required Future<void> Function() onResendOtp});
 
   @override
   _VerifyOtpScreenState createState() => _VerifyOtpScreenState();

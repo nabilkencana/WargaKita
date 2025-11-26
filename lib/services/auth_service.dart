@@ -108,7 +108,7 @@ class AuthService {
       print('📡 Backend response status: ${response.statusCode}');
       print('📦 Backend response body: ${response.body}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode.toString().startsWith('2')) {
         final responseData = json.decode(response.body);
         print('✅ Real Google login successful');
 
@@ -201,7 +201,7 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 15));
 
-      if (response.statusCode != 200) {
+      if (!response.statusCode.toString().startsWith('2')) {
         final error = json.decode(response.body);
         throw Exception(error['message'] ?? 'Gagal mengirim ulang OTP');
       }

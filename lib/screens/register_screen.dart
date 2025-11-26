@@ -6,7 +6,9 @@ import '../services/register_service.dart';
 import '../models/register_model.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final String? prefilledEmail;
+
+  const RegisterScreen({super.key, this.prefilledEmail});
 
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
@@ -79,6 +81,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    _prefillEmail();
+  }
+
+  // 🎯 METHOD BARU: Prefill email jika ada dari login screen
+  void _prefillEmail() {
+    if (widget.prefilledEmail != null && widget.prefilledEmail!.isNotEmpty) {
+      _emailController.text = widget.prefilledEmail!;
+
+      // Auto-focus ke field berikutnya setelah email terisi
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Bisa tambahkan auto-focus ke field berikutnya jika diperlukan
+        print('📧 Email prefilled: ${widget.prefilledEmail}');
+      });
+    }
   }
 
   @override
@@ -226,7 +242,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
     }
   }
-
 
   void _addSocialMedia() {
     showDialog(
@@ -415,6 +430,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _additionalSocialMedia.removeAt(index);
     });
   }
+
   void _nextStep() {
     if (_formKeys[_currentStep].currentState!.validate()) {
       if (_currentStep < 2) {
@@ -547,6 +563,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             const SizedBox(height: 32),
 
+            // 🎯 INFO EMAIL PREFILLED (jika ada)
+            if (widget.prefilledEmail != null &&
+                widget.prefilledEmail!.isNotEmpty)
+              _buildPrefilledEmailInfo(),
+
             // Form Fields
             _buildModernTextField(
               controller: _namaController,
@@ -651,13 +672,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             const SizedBox(height: 24),
 
-            // Email Field
+            // Email Field - SUDAH TERISI OTOMATIS
             _buildContactField(
               controller: _emailController,
               label: 'Email',
               hint: 'contoh@gmail.com',
               icon: Icons.email_outlined,
               iconColor: const Color(0xFF0D6EFD),
+              isPrefilled:
+                  widget.prefilledEmail != null, // 🎯 Tandai sebagai prefilled
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Email harus diisi';
@@ -709,7 +732,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 width: 30,
                 height: 30,
               ),
-              iconColor: Colors.pink, // bisa dihapus jika tidak needed
+              iconColor: Colors.pink,
               isOptional: true,
             ),
 
@@ -729,13 +752,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               isOptional: true,
             ),
             const SizedBox(height: 20),
+
             // Additional Social Media
-            // Additional Social Media dengan null safety
             ..._additionalSocialMedia.asMap().entries.map((entry) {
               final index = entry.key;
               final social = entry.value;
 
-              // Pastikan data yang diperlukan ada
               if (social['controller'] is TextEditingController &&
                   social['platform'] is String) {
                 return Padding(
@@ -746,14 +768,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: 'Masukkan ${social['platform']}',
                     icon: _getSocialMediaFormIcon(
                       social['platform'],
-                      social['assetPath'], // Kirim assetPath jika ada
+                      social['assetPath'],
                     ),
                     iconColor: social['color'],
                     onRemove: () => _removeSocialMedia(index),
                   ),
                 );
               } else {
-                // Return empty container jika data tidak valid
                 return const SizedBox.shrink();
               }
             }).toList(),
@@ -884,7 +905,150 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // Reusable Widget Components
+  // 🎯 WIDGET BARU: Info email prefilled
+  Widget _buildPrefilledEmailInfo() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D6EFD).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF0D6EFD).withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: const Color(0xFF0D6EFD), size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Email sudah terisi otomatis',
+                  style: TextStyle(
+                    color: const Color(0xFF0D6EFD),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Lanjutkan mengisi data lainnya untuk menyelesaikan pendaftaran',
+                  style: TextStyle(
+                    color: const Color(0xFF0D6EFD).withOpacity(0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🎯 UPDATE: Contact field dengan support prefilled
+  Widget _buildContactField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required Color iconColor,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+    bool isPrefilled = false, // 🎯 Parameter baru
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            if (isPrefilled) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D6EFD).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Terisi otomatis',
+                  style: TextStyle(
+                    color: const Color(0xFF0D6EFD),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isPrefilled
+                  ? const Color(0xFF0D6EFD).withOpacity(0.5)
+                  : Colors.grey.shade400,
+              width: isPrefilled ? 1.5 : 1,
+            ),
+            color: isPrefilled
+                ? const Color(0xFF0D6EFD).withOpacity(0.05)
+                : Colors.white,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                alignment: Alignment.center,
+                child: Icon(
+                  icon,
+                  color: isPrefilled ? const Color(0xFF0D6EFD) : iconColor,
+                  size: 22,
+                ),
+              ),
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  validator: validator,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isPrefilled
+                        ? const Color(0xFF0D6EFD)
+                        : Colors.black87,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: TextStyle(
+                      color: isPrefilled
+                          ? const Color(0xFF0D6EFD).withOpacity(0.6)
+                          : Colors.grey.shade500,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Reusable Widget Components (tetap sama seperti sebelumnya)
   Widget _buildStepHeader({
     required IconData icon,
     required String title,
@@ -1329,60 +1493,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildContactField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    required Color iconColor,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade400),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                alignment: Alignment.center,
-                child: Icon(icon, color: iconColor, size: 22),
-              ),
-              Expanded(
-                child: TextFormField(
-                  controller: controller,
-                  keyboardType: keyboardType,
-                  validator: validator,
-                  style: const TextStyle(fontSize: 16),
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    hintStyle: TextStyle(color: Colors.grey.shade500),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildSocialMediaField({
     required TextEditingController controller,
