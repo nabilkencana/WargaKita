@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_latihan1/screens/riwayat_laporan_screen.dart';
 import 'package:flutter_latihan1/services/auth_service.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
@@ -56,15 +57,6 @@ class _LaporanScreenState extends State<LaporanScreen> {
     Colors.teal.shade200,
     Colors.purple.shade200,
   ];
-
-  // Cloudinary Configuration - GANTI DENGAN KONFIGURASI ANDA
-  static const String _cloudName = 'dsk5gf5oy';
-  static const String _uploadPreset = 'wargakita_upload';
-  static const String _cloudinaryUrl =
-      'https://api.cloudinary.com/v1_1/$_cloudName/image/upload';
-
-  // Backend URL
-  static const String _backendUrl = 'https://wargakita.canadev.my.id/reports';
 
   @override
   Widget build(BuildContext context) {
@@ -186,22 +178,52 @@ class _LaporanScreenState extends State<LaporanScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Buat Laporan',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Sampaikan keluhan atau saran Anda untuk perbaikan',
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.white.withOpacity(0.9),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Buat Laporan',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sampaikan keluhan atau saran Anda untuk perbaikan',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Tombol Riwayat
+              IconButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          RiwayatLaporanScreen(user: widget.user),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.history_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                tooltip: 'Lihat Riwayat Laporan',
+              ),
+            ],
           ),
         ],
       ),
@@ -930,7 +952,7 @@ class _LaporanScreenState extends State<LaporanScreen> {
         request.files.add(
           http.MultipartFile.fromBytes(
             'imageFile',
-            fileBytes!,
+            fileBytes,
             filename: filename,
             contentType: contentType,
           ),
@@ -1027,70 +1049,6 @@ class _LaporanScreenState extends State<LaporanScreen> {
     );
   }
 
-  Future<Map<String, dynamic>> _uploadToCloudinary() async {
-    try {
-      var request = http.MultipartRequest('POST', Uri.parse(_cloudinaryUrl));
-
-      // Cloudinary parameters
-      request.fields['upload_preset'] = _uploadPreset;
-      request.fields['folder'] = 'wargakita_reports';
-      request.fields['tags'] = 'laporan_${widget.user.id}';
-
-      // Add image file
-      if (kIsWeb) {
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'imageFile',
-            _imageBytes!,
-            filename: 'report_${DateTime.now().millisecondsSinceEpoch}.jpg',
-          ),
-        );
-      } else {
-        request.files.add(
-          await http.MultipartFile.fromPath('file', _imageFile!.path),
-        );
-      }
-
-      // Listen untuk progress upload
-      final streamedResponse = await request.send();
-
-      // Track progress
-      int totalBytes = streamedResponse.contentLength ?? 0;
-      int receivedBytes = 0;
-
-      List<int> bytes = [];
-      await for (var chunk in streamedResponse.stream) {
-        bytes.addAll(chunk);
-        receivedBytes += chunk.length;
-
-        if (totalBytes > 0) {
-          setState(() {
-            _uploadProgress = receivedBytes / totalBytes;
-          });
-        }
-      }
-
-      final responseData = utf8.decode(bytes);
-      final jsonResponse = jsonDecode(responseData);
-
-      if (streamedResponse.statusCode.toString().startsWith('2')) {
-        return {
-          'success': true,
-          'url': jsonResponse['secure_url'],
-          'public_id': jsonResponse['public_id'],
-          'format': jsonResponse['format'],
-          'bytes': jsonResponse['bytes'],
-        };
-      } else {
-        return {
-          'success': false,
-          'error': jsonResponse['error']?['message'] ?? 'Upload failed',
-        };
-      }
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
 
   void _showSuccessDialog({String? imageUrl, String reportId = '-'}) {
     showDialog(
