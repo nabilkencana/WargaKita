@@ -1,6 +1,5 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/register_service.dart';
 import '../models/register_model.dart';
@@ -14,9 +13,9 @@ class RegisterScreen extends StatefulWidget {
   _RegisterScreenState createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends State<RegisterScreen>
+    with SingleTickerProviderStateMixin {
   final RegisterService _registerService = RegisterService();
-  final ImagePicker _picker = ImagePicker();
 
   int _currentStep = 0;
   bool _agreeToTerms = false;
@@ -47,6 +46,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     GlobalKey<FormState>(),
     GlobalKey<FormState>(),
   ];
+
+  // Animation controller untuk smooth transitions
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   // Daftar negara
   final List<String> _countries = [
@@ -82,23 +85,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     _prefillEmail();
+    _initializeAnimations();
+  }
+
+  void _initializeAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _animationController.forward();
   }
 
   // 🎯 METHOD BARU: Prefill email jika ada dari login screen
   void _prefillEmail() {
     if (widget.prefilledEmail != null && widget.prefilledEmail!.isNotEmpty) {
       _emailController.text = widget.prefilledEmail!;
+      print('📧 Email prefilled: ${widget.prefilledEmail}');
+    }
+  }
 
-      // Auto-focus ke field berikutnya setelah email terisi
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Bisa tambahkan auto-focus ke field berikutnya jika diperlukan
-        print('📧 Email prefilled: ${widget.prefilledEmail}');
+  // 🎯 METHOD BARU: Navigasi ke step tertentu dengan animasi
+  void _goToStep(int step) {
+    if (step >= 0 && step <= 2 && step != _currentStep) {
+      // Validasi step saat ini sebelum pindah
+      if (_currentStep < step && !_validateCurrentStep()) {
+        return;
+      }
+
+      _animationController.reverse().then((_) {
+        setState(() {
+          _currentStep = step;
+        });
+        _animationController.forward();
       });
     }
   }
 
+  // 🎯 METHOD BARU: Validasi step sebelum pindah
+  bool _validateCurrentStep() {
+    return _formKeys[_currentStep].currentState?.validate() ?? false;
+  }
+
   @override
   void dispose() {
+    _animationController.dispose();
     _namaController.dispose();
     _nikController.dispose();
     _tanggalLahirController.dispose();
@@ -169,69 +202,102 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final String? selected = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text(
-            'Pilih Negara',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0D6EFD),
-            ),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 400,
-            child: ListView.builder(
-              itemCount: _countries.length,
-              itemBuilder: (context, index) {
-                final country = _countries[index];
-                return ListTile(
-                  leading: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D6EFD).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(
-                      Icons.flag,
-                      color: const Color(0xFF0D6EFD),
-                      size: 18,
-                    ),
-                  ),
-                  title: Text(
-                    country,
-                    style: TextStyle(
-                      fontWeight: country == _selectedCountry
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      color: country == _selectedCountry
-                          ? const Color(0xFF0D6EFD)
-                          : Colors.black87,
-                    ),
-                  ),
-                  trailing: country == _selectedCountry
-                      ? const Icon(
-                          Icons.check_circle,
-                          color: Color(0xFF0D6EFD),
-                          size: 20,
-                        )
-                      : null,
-                  onTap: () {
-                    Navigator.pop(context, country);
-                  },
-                );
-              },
-            ),
-          ),
+        return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-            ),
-          ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Icon(Icons.flag, color: Color(0xFF0D6EFD), size: 24),
+                    SizedBox(width: 12),
+                    Text(
+                      'Pilih Negara',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0D6EFD),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(height: 1, color: Colors.grey.shade300),
+              SizedBox(
+                height: 400,
+                width: double.maxFinite,
+                child: ListView.builder(
+                  itemCount: _countries.length,
+                  itemBuilder: (context, index) {
+                    final country = _countries[index];
+                    return Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Color(0xFF0D6EFD).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.flag,
+                            color: Color(0xFF0D6EFD),
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          country,
+                          style: TextStyle(
+                            fontWeight: country == _selectedCountry
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: country == _selectedCountry
+                                ? Color(0xFF0D6EFD)
+                                : Colors.black87,
+                          ),
+                        ),
+                        trailing: country == _selectedCountry
+                            ? Icon(
+                                Icons.check_circle,
+                                color: Color(0xFF0D6EFD),
+                                size: 22,
+                              )
+                            : null,
+                        onTap: () {
+                          Navigator.pop(context, country);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Container(height: 1, color: Colors.grey.shade300),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: BorderSide(color: Colors.grey.shade400),
+                    ),
+                    child: Text(
+                      'Batal',
+                      style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -246,60 +312,87 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _addSocialMedia() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Tambah Media Sosial'),
-        content: Column(
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // LinkedIn
-            if (!_isSocialMediaAdded('LinkedIn'))
-              ListTile(
-                leading: _buildSocialMediaIcon('LinkedIn'),
-                title: const Text('LinkedIn'),
-                onTap: () {
-                  _addSocialMediaField('LinkedIn');
-                  Navigator.pop(context);
-                },
-              ),
-
-            // Twitter
-            if (!_isSocialMediaAdded('Twitter'))
-              ListTile(
-                leading: _buildSocialMediaIcon('Twitter'),
-                title: const Text('Twitter'),
-                onTap: () {
-                  _addSocialMediaField('Twitter');
-                  Navigator.pop(context);
-                },
-              ),
-
-            // TikTok
-            if (!_isSocialMediaAdded('TikTok'))
-              ListTile(
-                leading: _buildSocialMediaIcon('TikTok'),
-                title: const Text('TikTok'),
-                onTap: () {
-                  _addSocialMediaField('TikTok');
-                  Navigator.pop(context);
-                },
-              ),
-
-            if (_isAllSocialMediaAdded())
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
-                  'Semua media sosial sudah ditambahkan',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                'Tambah Media Sosial',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
+            ),
+            ..._buildSocialMediaOptions(),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: BorderSide(color: Colors.grey.shade400),
+                  ),
+                  child: Text(
+                    'Batal',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // Method untuk build icon dengan asset image dan fallback ke icon
+  List<Widget> _buildSocialMediaOptions() {
+    final options = [
+      {'platform': 'LinkedIn', 'available': !_isSocialMediaAdded('LinkedIn')},
+      {'platform': 'Twitter', 'available': !_isSocialMediaAdded('Twitter')},
+      {'platform': 'TikTok', 'available': !_isSocialMediaAdded('TikTok')},
+    ];
+
+    final availableOptions = options
+        .where((option) => option['available'] as bool)
+        .toList();
+
+    if (availableOptions.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            'Semua media sosial sudah ditambahkan',
+            style: TextStyle(color: Colors.grey.shade600) ,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ];
+    }
+
+    return availableOptions.map((option) {
+      return Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: _buildSocialMediaIcon(option['platform'] as String),
+          title: Text(option['platform'] as String),
+          onTap: () {
+            _addSocialMediaField(option['platform'] as String);
+            Navigator.pop(context);
+          },
+        ),
+      );
+    }).toList();
+  }
+
   Widget _buildSocialMediaIcon(String platform) {
     String assetPath;
     IconData fallbackIcon;
@@ -324,44 +417,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
       default:
         assetPath = 'assets/images/link.png';
         fallbackIcon = Icons.link;
-        color = const Color(0xFF0D6EFD);
+        color = Color(0xFF0D6EFD);
     }
 
     return Image.asset(
       assetPath,
-      width: 50,
-      height: 50,
+      width: 40,
+      height: 40,
       errorBuilder: (context, error, stackTrace) {
-        // Fallback ke Material Icon jika asset tidak ditemukan
-        return Icon(fallbackIcon, color: color, size: 30);
+        return Icon(fallbackIcon, color: color, size: 24);
       },
     );
   }
 
-  // Method untuk mengecek apakah social media sudah ditambahkan
   bool _isSocialMediaAdded(String platform) {
     return _additionalSocialMedia.any((item) => item['platform'] == platform);
   }
 
-  // Method untuk mengecek apakah semua social media sudah ditambahkan
-  bool _isAllSocialMediaAdded() {
-    final List<String> allPlatforms = ['LinkedIn', 'Twitter', 'TikTok'];
-    return allPlatforms.every((platform) => _isSocialMediaAdded(platform));
-  }
-
-  // Update method _addSocialMediaField dengan menyimpan asset path
   void _addSocialMediaField(String platform) {
     setState(() {
       _additionalSocialMedia.add({
         'platform': platform,
         'controller': TextEditingController(),
         'color': _getPlatformColor(platform),
-        'assetPath': _getPlatformAssetPath(platform), // Simpan path asset
+        'assetPath': _getPlatformAssetPath(platform),
       });
     });
   }
 
-  // Method untuk mendapatkan path asset berdasarkan platform
   String _getPlatformAssetPath(String platform) {
     switch (platform) {
       case 'LinkedIn':
@@ -384,21 +467,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 'TikTok':
         return Colors.black;
       default:
-        return const Color(0xFF0D6EFD);
+        return Color(0xFF0D6EFD);
     }
   }
 
-  // Method untuk mendapatkan icon berdasarkan platform (untuk digunakan di form)
   Widget _getSocialMediaFormIcon(String platform, [String? assetPath]) {
-    // Coba gunakan asset path yang diberikan, jika tidak ada gunakan default
     String path = assetPath ?? _getPlatformAssetPath(platform);
 
     return Image.asset(
       path,
-      width: 50,
-      height: 50,
+      width: 40,
+      height: 40,
       errorBuilder: (context, error, stackTrace) {
-        // Fallback ke Material Icon jika asset tidak ditemukan
         IconData fallbackIcon;
         Color color;
 
@@ -417,7 +497,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             break;
           default:
             fallbackIcon = Icons.link;
-            color = const Color(0xFF0D6EFD);
+            color = Color(0xFF0D6EFD);
         }
 
         return Icon(fallbackIcon, color: color, size: 24);
@@ -432,11 +512,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _nextStep() {
-    if (_formKeys[_currentStep].currentState!.validate()) {
+    if (_validateCurrentStep()) {
       if (_currentStep < 2) {
-        setState(() {
-          _currentStep++;
-        });
+        _goToStep(_currentStep + 1);
       } else {
         _submitRegistration();
       }
@@ -445,15 +523,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _previousStep() {
     if (_currentStep > 0) {
-      setState(() {
-        _currentStep--;
-      });
+      _goToStep(_currentStep - 1);
     }
   }
 
   Future<void> _submitRegistration() async {
     if (!_agreeToTerms) {
-      _showError('Anda harus menyetujui Syarat penggunaan');
+      _showError('Anda harus menyetujui Syarat & Ketentuan');
       return;
     }
 
@@ -462,9 +538,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    // 🎯 Validasi file sebelum upload
+    final fileValidationError = _registerService.validateFile(_kkFile);
+    if (fileValidationError != null) {
+      _showError(fileValidationError);
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
+      // 🎯 Format tanggal untuk backend
       final formattedDate = _registerService.formatDateForBackend(
         _tanggalLahirController.text,
       );
@@ -489,6 +573,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         rtRw: _rtRwController.text.trim(),
       );
 
+      print('📝 Sending registration request...');
+
       final response = await _registerService.register(
         registerRequest,
         filePath: _kkFile?.path,
@@ -507,21 +593,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _isLoading = false);
     }
   }
-
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.error_outline, color: Colors.red, size: 20),
+            ),
+            const SizedBox(width: 12),
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Tutup',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
       ),
     );
   }
@@ -531,394 +630,421 @@ class _RegisterScreenState extends State<RegisterScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.check_circle, color: Colors.green, size: 20),
+            ),
+            const SizedBox(width: 12),
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.green.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         duration: const Duration(seconds: 3),
       ),
     );
   }
 
+  // 🎯 WIDGET BUILDERS YANG SUDAH DIPERBAIKI
   Widget _buildStep1() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Form(
-        key: _formKeys[0],
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Form(
+          key: _formKeys[0],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              _buildStepHeader(
+                icon: Icons.person_add_alt_1,
+                title: 'Data Pribadi',
+                subtitle: 'Langkah 1/3 - Isi data diri sesuai KTP/KK',
+              ),
+              const SizedBox(height: 32),
 
-            // Header Step
-            _buildStepHeader(
-              icon: Icons.person_add_alt_1,
-              title: 'Data Pribadi',
-              subtitle: 'Langkah 1/3 - Isi data diri sesuai KTP/KK',
-            ),
+              if (widget.prefilledEmail != null &&
+                  widget.prefilledEmail!.isNotEmpty)
+                _buildPrefilledEmailInfo(),
 
-            const SizedBox(height: 32),
+              _buildModernTextField(
+                controller: _namaController,
+                label: 'Nama Lengkap',
+                hint: 'Masukkan nama lengkap sesuai KTP',
+                icon: Icons.person_outline,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Nama lengkap harus diisi';
+                  }
+                  if (value.length < 3) {
+                    return 'Nama lengkap minimal 3 karakter';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
 
-            // 🎯 INFO EMAIL PREFILLED (jika ada)
-            if (widget.prefilledEmail != null &&
-                widget.prefilledEmail!.isNotEmpty)
-              _buildPrefilledEmailInfo(),
+              _buildTextFieldWithCounter(
+                controller: _nikController,
+                label: 'NIK',
+                hint: '350165163316516',
+                icon: Icons.credit_card,
+                maxLength: 16,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'NIK harus diisi';
+                  }
+                  if (value.length != 16) {
+                    return 'NIK harus 16 digit';
+                  }
+                  if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                    return 'NIK harus berupa angka';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
 
-            // Form Fields
-            _buildModernTextField(
-              controller: _namaController,
-              label: 'Nama Lengkap',
-              hint: 'Masukkan nama lengkap sesuai KTP',
-              icon: Icons.person_outline,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Nama lengkap harus diisi';
-                }
-                if (value.length < 3) {
-                  return 'Nama lengkap minimal 3 karakter';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
+              _buildDateField(),
+              const SizedBox(height: 20),
 
-            // NIK dengan counter
-            _buildTextFieldWithCounter(
-              controller: _nikController,
-              label: 'NIK',
-              hint: '350165163316516',
-              icon: Icons.credit_card,
-              maxLength: 16,
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'NIK harus diisi';
-                }
-                if (value.length != 16) {
-                  return 'NIK harus 16 digit';
-                }
-                if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-                  return 'NIK harus berupa angka';
-                }
-                return null;
-              },
-            ),
+              _buildModernTextField(
+                controller: _tempatLahirController,
+                label: 'Tempat Lahir',
+                hint: 'Masukkan kota tempat lahir',
+                icon: Icons.place_outlined,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Tempat lahir harus diisi';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 28),
 
-            const SizedBox(height: 20),
+              _buildFileUploadSection(),
+              const SizedBox(height: 20),
 
-            // Tanggal Lahir
-            _buildDateField(),
-
-            const SizedBox(height: 20),
-
-            _buildModernTextField(
-              controller: _tempatLahirController,
-              label: 'Tempat Lahir',
-              hint: 'Masukkan kota tempat lahir',
-              icon: Icons.place_outlined,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Tempat lahir harus diisi';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 28),
-
-            // Upload KK Section
-            _buildFileUploadSection(),
-
-            const SizedBox(height: 20),
-
-            // Terms and Conditions
-            _buildTermsSection(),
-
-            const SizedBox(height: 20),
-          ],
+              _buildTermsSection(),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildStep2() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Form(
-        key: _formKeys[1],
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-
-            // Header Step
-            _buildStepHeader(
-              icon: Icons.contact_phone,
-              title: 'Kontak & Media Sosial',
-              subtitle: 'Langkah 2/3 - Informasi kontak Anda',
-            ),
-
-            const SizedBox(height: 32),
-
-            // Kontak Section
-            _buildSectionHeader(
-              title: 'Informasi Kontak',
-              subtitle: 'Pastikan email dan nomor telepon aktif',
-            ),
-
-            const SizedBox(height: 24),
-
-            // Email Field - SUDAH TERISI OTOMATIS
-            _buildContactField(
-              controller: _emailController,
-              label: 'Email',
-              hint: 'contoh@gmail.com',
-              icon: Icons.email_outlined,
-              iconColor: const Color(0xFF0D6EFD),
-              isPrefilled:
-                  widget.prefilledEmail != null, // 🎯 Tandai sebagai prefilled
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Email harus diisi';
-                }
-                if (!RegExp(
-                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                ).hasMatch(value)) {
-                  return 'Format email tidak valid';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            // Phone Field
-            _buildContactField(
-              controller: _phoneController,
-              label: 'Nomor Telepon',
-              hint: '+62 812-3456-7890',
-              icon: Icons.phone_iphone,
-              iconColor: Colors.green,
-              keyboardType: TextInputType.phone,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Nomor telepon harus diisi';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 32),
-
-            // Media Sosial Section
-            _buildSectionHeader(
-              title: 'Media Sosial (Opsional)',
-              subtitle: 'Tautan media sosial untuk terhubung',
-            ),
-
-            const SizedBox(height: 24),
-
-            // Instagram Field
-            _buildSocialMediaField(
-              controller: _instagramController,
-              label: 'Instagram',
-              hint: '@username',
-              icon: Image.asset(
-                'assets/images/instagram.png',
-                width: 30,
-                height: 30,
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Form(
+          key: _formKeys[1],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              _buildStepHeader(
+                icon: Icons.contact_phone,
+                title: 'Kontak & Media Sosial',
+                subtitle: 'Langkah 2/3 - Informasi kontak Anda',
               ),
-              iconColor: Colors.pink,
-              isOptional: true,
-            ),
+              const SizedBox(height: 32),
 
-            const SizedBox(height: 20),
-
-            // Facebook Field
-            _buildSocialMediaField(
-              controller: _facebookController,
-              label: 'Facebook',
-              hint: 'nama.profile',
-              icon: Image.asset(
-                'assets/images/facebook.png',
-                width: 30,
-                height: 30,
+              _buildSectionHeader(
+                title: 'Informasi Kontak',
+                subtitle: 'Pastikan email dan nomor telepon aktif',
               ),
-              iconColor: Colors.blue,
-              isOptional: true,
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-            // Additional Social Media
-            ..._additionalSocialMedia.asMap().entries.map((entry) {
-              final index = entry.key;
-              final social = entry.value;
+              _buildContactField(
+                controller: _emailController,
+                label: 'Email',
+                hint: 'contoh@gmail.com',
+                icon: Icons.email_outlined,
+                iconColor: Color(0xFF0D6EFD),
+                isPrefilled: widget.prefilledEmail != null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Email harus diisi';
+                  }
+                  if (!RegExp(
+                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                  ).hasMatch(value)) {
+                    return 'Format email tidak valid';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
 
-              if (social['controller'] is TextEditingController &&
-                  social['platform'] is String) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: _buildRemovableSocialMediaField(
-                    controller: social['controller'],
-                    label: social['platform'],
-                    hint: 'Masukkan ${social['platform']}',
-                    icon: _getSocialMediaFormIcon(
-                      social['platform'],
-                      social['assetPath'],
+              _buildContactField(
+                controller: _phoneController,
+                label: 'Nomor Telepon',
+                hint: '+62 812-3456-7890',
+                icon: Icons.phone_iphone,
+                iconColor: Colors.green,
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Nomor telepon harus diisi';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 32),
+
+              _buildSectionHeader(
+                title: 'Media Sosial (Opsional)',
+                subtitle: 'Tautan media sosial untuk terhubung',
+              ),
+              const SizedBox(height: 24),
+
+              _buildSocialMediaField(
+                controller: _instagramController,
+                label: 'Instagram',
+                hint: '@username',
+                icon: Image.asset(
+                  'assets/images/instagram.png',
+                  width: 24,
+                  height: 24,
+                ),
+                iconColor: Colors.pink,
+                isOptional: true,
+              ),
+              const SizedBox(height: 20),
+
+              _buildSocialMediaField(
+                controller: _facebookController,
+                label: 'Facebook',
+                hint: 'nama.profile',
+                icon: Image.asset(
+                  'assets/images/facebook.png',
+                  width: 24,
+                  height: 24,
+                ),
+                iconColor: Colors.blue,
+                isOptional: true,
+              ),
+              const SizedBox(height: 20),
+
+              ..._additionalSocialMedia.asMap().entries.map((entry) {
+                final index = entry.key;
+                final social = entry.value;
+
+                if (social['controller'] is TextEditingController &&
+                    social['platform'] is String) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: _buildRemovableSocialMediaField(
+                      controller: social['controller'],
+                      label: social['platform'],
+                      hint: 'Masukkan ${social['platform']}',
+                      icon: _getSocialMediaFormIcon(
+                        social['platform'],
+                        social['assetPath'],
+                      ),
+                      iconColor: social['color'],
+                      onRemove: () => _removeSocialMedia(index),
                     ),
-                    iconColor: social['color'],
-                    onRemove: () => _removeSocialMedia(index),
-                  ),
-                );
-              } else {
-                return const SizedBox.shrink();
-              }
-            }).toList(),
+                  );
+                } else {
+                  return const SizedBox.shrink();
+                }
+              }).toList(),
 
-            const SizedBox(height: 20),
-
-            // Add More Button
-            _buildAddSocialMediaButton(),
-
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 20),
+              _buildAddSocialMediaButton(),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildStep3() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Form(
-        key: _formKeys[2],
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Form(
+          key: _formKeys[2],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              _buildStepHeader(
+                icon: Icons.home_work,
+                title: 'Alamat Tempat Tinggal',
+                subtitle: 'Langkah 3/3 - Alamat sesuai domisili',
+              ),
+              const SizedBox(height: 32),
 
-            // Header Step
-            _buildStepHeader(
-              icon: Icons.home_work,
-              title: 'Alamat Tempat Tinggal',
-              subtitle: 'Langkah 3/3 - Alamat sesuai domisili',
-            ),
+              _buildSectionHeader(
+                title: 'Detail Alamat',
+                subtitle: 'Isi alamat lengkap tempat tinggal Anda',
+              ),
+              const SizedBox(height: 24),
 
-            const SizedBox(height: 32),
+              _buildModernTextField(
+                controller: _alamatController,
+                label: 'Alamat Lengkap',
+                hint: 'Masukkan jalan, nomor rumah, dusun, dll.',
+                icon: Icons.home_outlined,
+                maxLines: 3,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Alamat harus diisi';
+                  }
+                  if (value.length < 10) {
+                    return 'Alamat terlalu pendek';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
 
-            // Alamat Section
-            _buildSectionHeader(
-              title: 'Detail Alamat',
-              subtitle: 'Isi alamat lengkap tempat tinggal Anda',
-            ),
+              _buildModernTextField(
+                controller: _kotaController,
+                label: 'Kota/Kabupaten',
+                hint: 'Masukkan kota atau kabupaten',
+                icon: Icons.location_city_outlined,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Kota harus diisi';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
 
-            const SizedBox(height: 24),
+              _buildCountryField(),
+              const SizedBox(height: 20),
 
-            // Alamat Fields
-            _buildModernTextField(
-              controller: _alamatController,
-              label: 'Alamat Lengkap',
-              hint: 'Masukkan jalan, nomor rumah, dusun, dll.',
-              icon: Icons.home_outlined,
-              maxLines: 3,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Alamat harus diisi';
-                }
-                if (value.length < 10) {
-                  return 'Alamat terlalu pendek';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
+              _buildTextFieldWithCounter(
+                controller: _kodePosController,
+                label: 'Kode Pos',
+                hint: '12345',
+                icon: Icons.markunread_mailbox_outlined,
+                maxLength: 5,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Kode pos harus diisi';
+                  }
+                  if (value.length != 5) {
+                    return 'Kode pos harus 5 digit';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
 
-            _buildModernTextField(
-              controller: _kotaController,
-              label: 'Kota/Kabupaten',
-              hint: 'Masukkan kota atau kabupaten',
-              icon: Icons.location_city_outlined,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Kota harus diisi';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
+              _buildModernTextField(
+                controller: _rtRwController,
+                label: 'RT/RW',
+                hint: 'Contoh: 001/002',
+                icon: Icons.numbers_outlined,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'RT/RW harus diisi';
+                  }
+                  if (!RegExp(r'^[0-9]{3}/[0-9]{3}$').hasMatch(value)) {
+                    return 'Format: 001/002 (3 digit RT dan RW)';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 30),
 
-            // Negara Field
-            _buildCountryField(),
-
-            const SizedBox(height: 20),
-
-            // Kode Pos dengan counter
-            _buildTextFieldWithCounter(
-              controller: _kodePosController,
-              label: 'Kode Pos',
-              hint: '12345',
-              icon: Icons.markunread_mailbox_outlined,
-              maxLength: 5,
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Kode pos harus diisi';
-                }
-                if (value.length != 5) {
-                  return 'Kode pos harus 5 digit';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            _buildModernTextField(
-              controller: _rtRwController,
-              label: 'RT/RW',
-              hint: 'Contoh: 001/002',
-              icon: Icons.numbers_outlined,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'RT/RW harus diisi';
-                }
-                if (!RegExp(r'^[0-9]{3}/[0-9]{3}$').hasMatch(value)) {
-                  return 'Format: 001/002 (3 digit RT dan RW)';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 30),
-
-            // Info penting
-            _buildInfoSection(),
-
-            const SizedBox(height: 20),
-          ],
+              _buildInfoSection(),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // 🎯 WIDGET BARU: Info email prefilled
+  // 🎯 WIDGET BARU: Step indicator yang bisa di-click
+  Widget _buildStepIndicator(int stepIndex, String title) {
+    final isActive = _currentStep == stepIndex;
+    final isCompleted = _currentStep > stepIndex;
+    final isAccessible = stepIndex <= _currentStep || _currentStep > stepIndex;
+
+    return GestureDetector(
+      onTap: isAccessible ? () => _goToStep(stepIndex) : null,
+      child: Column(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isActive || isCompleted
+                  ? Color(0xFF0D6EFD)
+                  : Colors.grey.shade300,
+              shape: BoxShape.circle,
+              boxShadow: (isActive || isCompleted)
+                  ? [
+                      BoxShadow(
+                        color: Color(0xFF0D6EFD).withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: isCompleted
+                  ? Icon(Icons.check, color: Colors.white, size: 20)
+                  : Text(
+                      (stepIndex + 1).toString(),
+                      style: TextStyle(
+                        color: isActive ? Colors.white : Colors.grey.shade600,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: isActive ? Color(0xFF0D6EFD) : Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // WIDGET COMPONENTS YANG SUDAH ADA (dengan improvement kecil)
   Widget _buildPrefilledEmailInfo() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D6EFD).withOpacity(0.1),
+        color: Color(0xFF0D6EFD).withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF0D6EFD).withOpacity(0.3)),
+        border: Border.all(color: Color(0xFF0D6EFD).withOpacity(0.3)),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: const Color(0xFF0D6EFD), size: 20),
+          Icon(Icons.info_outline, color: Color(0xFF0D6EFD), size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -927,7 +1053,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text(
                   'Email sudah terisi otomatis',
                   style: TextStyle(
-                    color: const Color(0xFF0D6EFD),
+                    color: Color(0xFF0D6EFD),
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -936,7 +1062,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text(
                   'Lanjutkan mengisi data lainnya untuk menyelesaikan pendaftaran',
                   style: TextStyle(
-                    color: const Color(0xFF0D6EFD).withOpacity(0.8),
+                    color: Color(0xFF0D6EFD).withOpacity(0.8),
                     fontSize: 12,
                   ),
                 ),
@@ -1048,7 +1174,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // Reusable Widget Components (tetap sama seperti sebelumnya)
   Widget _buildStepHeader({
     required IconData icon,
     required String title,
@@ -1058,20 +1183,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFFE8F4FD), Color(0xFFF0F8FF)],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF0D6EFD).withOpacity(0.3)),
+        border: Border.all(color: Color(0xFF0D6EFD).withOpacity(0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D6EFD),
+              color: Color(0xFF0D6EFD),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: Colors.white, size: 24),
@@ -1083,7 +1208,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0D6EFD),
@@ -1092,7 +1217,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
                 ),
               ],
             ),
@@ -1725,13 +1850,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  @override
+   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.black87,
+              size: 18,
+            ),
+          ),
           onPressed: _isLoading ? null : () => Navigator.pop(context),
         ),
         backgroundColor: Colors.white,
@@ -1739,11 +1875,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo Warga Kita dengan gradient biru
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [Color(0xFF0D6EFD), Color(0xFF0A58CA)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -1751,9 +1886,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0D6EFD).withOpacity(0.3),
+                    color: Color(0xFF0D6EFD).withOpacity(0.3),
                     blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    offset: Offset(0, 2),
                   ),
                 ],
               ),
@@ -1761,12 +1896,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 'assets/images/Vector.png',
                 width: 28,
                 height: 28,
-                fit: BoxFit.contain,
-                color: Colors.white, // Opsional: force color putih jika perlu
+                color: Colors.white,
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'WARGA KITA',
               style: TextStyle(
                 color: Colors.black,
@@ -1779,11 +1913,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: Colors.grey),
-            onPressed: () {
-              // Akan diimplementasikan fungsi help
-              _showHelpDialog();
-            },
+            icon: Icon(Icons.help_outline, color: Colors.grey.shade600),
+            onPressed: _showHelpDialog,
           ),
         ],
       ),
@@ -1791,21 +1922,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ? _buildLoadingScreen()
           : Column(
               children: [
-                // Progress Bar
                 _buildProgressBar(),
-
-                // Step Indicators
                 _buildStepIndicators(),
-
-                // Content
                 Expanded(
                   child: IndexedStack(
                     index: _currentStep,
                     children: [_buildStep1(), _buildStep2(), _buildStep3()],
                   ),
                 ),
-
-                // Navigation Buttons
                 _buildNavigationButtons(),
               ],
             ),
@@ -1813,15 +1937,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildLoadingScreen() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
+          SizedBox(
+            width: 60,
+            height: 60,
+            child: CircularProgressIndicator(
+              strokeWidth: 4,
+              color: Color(0xFF0D6EFD),
+            ),
+          ),
+          const SizedBox(height: 20),
           Text(
             'Mendaftarkan akun...',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Harap tunggu sebentar',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -1839,7 +1975,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               Text(
                 'Langkah ${_currentStep + 1} dari 3',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
@@ -1847,7 +1983,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               Text(
                 '${((_currentStep + 1) / 3 * 100).round()}%',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF0D6EFD),
@@ -1859,7 +1995,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           LinearProgressIndicator(
             value: (_currentStep + 1) / 3,
             backgroundColor: Colors.grey.shade300,
-            color: const Color(0xFF0D6EFD),
+            color: Color(0xFF0D6EFD),
             minHeight: 6,
             borderRadius: BorderRadius.circular(3),
           ),
@@ -1870,14 +2006,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildStepIndicators() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.grey.shade200,
-            blurRadius: 2,
-            offset: const Offset(0, 2),
+            blurRadius: 3,
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -1892,57 +2028,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildStepIndicator(int stepIndex, String title) {
-    final isActive = _currentStep == stepIndex;
-    final isCompleted = _currentStep > stepIndex;
-
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isActive || isCompleted
-                ? const Color(0xFF0D6EFD)
-                : Colors.grey.shade300,
-            shape: BoxShape.circle,
-            boxShadow: (isActive || isCompleted)
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFF0D6EFD).withOpacity(0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: isCompleted
-                ? const Icon(Icons.check, color: Colors.white, size: 20)
-                : Text(
-                    (stepIndex + 1).toString(),
-                    style: TextStyle(
-                      color: isActive ? Colors.white : Colors.grey.shade600,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            color: isActive ? const Color(0xFF0D6EFD) : Colors.grey.shade600,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
   Widget _buildNavigationButtons() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1952,7 +2037,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           BoxShadow(
             color: Colors.grey.shade300,
             blurRadius: 10,
-            offset: const Offset(0, -2),
+            offset: Offset(0, -2),
           ),
         ],
       ),
@@ -1969,15 +2054,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   side: BorderSide(color: Colors.grey.shade400),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.arrow_back, size: 18),
-                    SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_back,
+                      size: 18,
+                      color: Colors.grey.shade700,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Kembali',
                       style: TextStyle(
-                        color: Colors.grey,
+                        color: Colors.grey.shade700,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1992,7 +2081,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: ElevatedButton(
               onPressed: _nextStep,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D6EFD),
+                backgroundColor: Color(0xFF0D6EFD),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -2003,8 +2092,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _currentStep == 2 ? 'Selesai' : 'Lanjut',
-                    style: const TextStyle(
+                    _currentStep == 2 ? 'Daftar Sekarang' : 'Lanjut',
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -2012,11 +2101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   if (_currentStep < 2) ...[
                     const SizedBox(width: 8),
-                    const Icon(
-                      Icons.arrow_forward,
-                      size: 18,
-                      color: Colors.white,
-                    ),
+                    Icon(Icons.arrow_forward, size: 18, color: Colors.white),
                   ],
                 ],
               ),
@@ -2030,34 +2115,86 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _showHelpDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.help, color: Color(0xFF0D6EFD)),
-            SizedBox(width: 8),
-            Text('Bantuan Pendaftaran'),
-          ],
-        ),
-        content: const Column(
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Panduan Pengisian Form:',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(Icons.help_outline, color: Color(0xFF0D6EFD), size: 48),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Bantuan Pendaftaran',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(height: 8),
-            Text('• Pastikan data sesuai dengan dokumen resmi'),
-            Text('• NIK harus 16 digit angka'),
-            Text('• Upload foto KK yang jelas dan terbaca'),
-            Text('• Email dan nomor telepon harus aktif'),
+            Container(height: 1, color: Colors.grey.shade300),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Panduan Pengisian:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildHelpItem('Pastikan data sesuai dokumen resmi'),
+                  _buildHelpItem('NIK harus 16 digit angka'),
+                  _buildHelpItem('Upload foto KK yang jelas'),
+                  _buildHelpItem('Email dan nomor telepon harus aktif'),
+                  _buildHelpItem('Klik step indicator untuk navigasi cepat'),
+                ],
+              ),
+            ),
+            Container(height: 1, color: Colors.grey.shade300),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF0D6EFD),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Mengerti',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
-          ),
+      ),
+    );
+  }
+
+  Widget _buildHelpItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.check_circle, color: Colors.green, size: 16),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text)),
         ],
       ),
     );

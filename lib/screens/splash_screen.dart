@@ -1,6 +1,9 @@
 // screens/splash_screen.dart
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'home_screen.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
 
 class SplashToLoginScreen extends StatefulWidget {
   const SplashToLoginScreen({super.key});
@@ -18,10 +21,18 @@ class _SplashToLoginScreenState extends State<SplashToLoginScreen>
   late Animation<Color?> _colorAnimation;
   late Animation<Offset> _slideAnimation;
 
+  // TAMBAHKAN: State untuk auth check
+  bool _isCheckingAuth = false;
+  String _statusMessage = 'Memuat aplikasi...';
+
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+    _checkAuthenticationAndNavigate();
+  }
 
+  void _initializeAnimations() {
     // Setup animation controller
     _controller = AnimationController(
       duration: const Duration(milliseconds: 2500),
@@ -65,37 +76,108 @@ class _SplashToLoginScreenState extends State<SplashToLoginScreen>
 
     // Start animations
     _controller.forward();
-
-    // Navigate to login screen after 3.5 seconds
-    _navigateToLogin();
   }
 
-  void _navigateToLogin() {
-    Future.delayed(const Duration(milliseconds: 3500), () {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const LoginScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(0.0, 1.0);
-            const end = Offset.zero;
-            const curve = Curves.easeInOutCubic;
-            var tween = Tween(
-              begin: begin,
-              end: end,
-            ).chain(CurveTween(curve: curve));
-            var offsetAnimation = animation.drive(tween);
-
-            return FadeTransition(
-              opacity: animation,
-              child: SlideTransition(position: offsetAnimation, child: child),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 800),
-        ),
-      );
+  // TAMBAHKAN: Fungsi untuk cek authentication
+  Future<void> _checkAuthenticationAndNavigate() async {
+    setState(() {
+      _isCheckingAuth = true;
+      _statusMessage = 'Memeriksa sesi login...';
     });
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      final isLoggedIn = await AuthService.isLoggedIn();
+      final user = await AuthService.getUser();
+
+      print('🔍 Splash Screen Auth Check:');
+      print('   Is logged in: $isLoggedIn');
+      print('   User: ${user?.email}');
+
+      if (mounted) {
+        if (isLoggedIn && user != null) {
+          setState(() {
+            _statusMessage = 'Login terdeteksi, mengarahkan...';
+          });
+
+          await Future.delayed(const Duration(milliseconds: 800));
+
+          _navigateToHome(user);
+        } else {
+          setState(() {
+            _statusMessage = 'Mengarahkan ke halaman login...';
+          });
+
+          await Future.delayed(const Duration(milliseconds: 800));
+
+          _navigateToLogin();
+        }
+      }
+    } catch (e) {
+      print('❌ Splash auth check error: $e');
+      if (mounted) {
+        _navigateToLogin();
+      }
+    } finally {
+      setState(() {
+        _isCheckingAuth = false;
+      });
+    }
+  }
+
+  // PERBARUI: Navigasi ke HomeScreen jika sudah login
+  void _navigateToHome(User user) {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            HomeScreen(user: user),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutCubic;
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: offsetAnimation, child: child),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 800),
+      ),
+    );
+  }
+
+  // PERBARUI: Navigasi ke LoginScreen
+  void _navigateToLogin() {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const LoginScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutCubic;
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: offsetAnimation, child: child),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 800),
+      ),
+    );
   }
 
   @override
@@ -227,7 +309,22 @@ class _SplashToLoginScreenState extends State<SplashToLoginScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 60),
+                      const SizedBox(height: 40),
+
+                      // TAMBAHKAN: Status message untuk auth check
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: Text(
+                          _statusMessage,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF666666),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
 
                       // Modern Animated Loading Indicator
                       _buildAdvancedLoadingIndicator(),
@@ -235,7 +332,10 @@ class _SplashToLoginScreenState extends State<SplashToLoginScreen>
                       const SizedBox(height: 40),
 
                       // Animated Loading Text with Progressive Dots
-                      _AnimatedLoadingText(controller: _controller),
+                      _AnimatedLoadingText(
+                        controller: _controller,
+                        isCheckingAuth: _isCheckingAuth,
+                      ),
                     ],
                   );
                 },
@@ -311,18 +411,22 @@ class _SplashToLoginScreenState extends State<SplashToLoginScreen>
             ),
           ),
 
-          // Inner icon
+          // Inner icon dengan kondisi auth check
           ScaleTransition(
             scale: _bounceAnimation,
             child: Container(
               width: 30,
               height: 30,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0xFF3366FF),
+                color: _isCheckingAuth
+                    ? Colors.orange.shade600
+                    : const Color(0xFF3366FF),
               ),
-              child: const Icon(
-                Icons.arrow_forward_rounded,
+              child: Icon(
+                _isCheckingAuth
+                    ? Icons.security_rounded
+                    : Icons.arrow_forward_rounded,
                 color: Colors.white,
                 size: 16,
               ),
@@ -334,10 +438,15 @@ class _SplashToLoginScreenState extends State<SplashToLoginScreen>
   }
 }
 
+// PERBARUI: _AnimatedLoadingText untuk support auth check
 class _AnimatedLoadingText extends StatefulWidget {
   final AnimationController controller;
+  final bool isCheckingAuth;
 
-  const _AnimatedLoadingText({required this.controller});
+  const _AnimatedLoadingText({
+    required this.controller,
+    required this.isCheckingAuth,
+  });
 
   @override
   State<_AnimatedLoadingText> createState() => _AnimatedLoadingTextState();
@@ -371,13 +480,19 @@ class _AnimatedLoadingTextState extends State<_AnimatedLoadingText> {
       animation: Listenable.merge([_dotAnimation, _glowAnimation]),
       builder: (context, child) {
         String dots = '.' * _dotAnimation.value;
+        String text = widget.isCheckingAuth
+            ? 'Memeriksa sesi$dots'
+            : 'Memuat$dots';
+
         return Opacity(
           opacity: _glowAnimation.value,
           child: Text(
-            'Memuat$dots',
+            text,
             style: TextStyle(
               fontSize: 16,
-              color: const Color(0xFF666666),
+              color: widget.isCheckingAuth
+                  ? Colors.orange.shade700
+                  : const Color(0xFF666666),
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,
               shadows: [
@@ -395,24 +510,137 @@ class _AnimatedLoadingTextState extends State<_AnimatedLoadingText> {
   }
 }
 
-// Premium Minimal Version
-class PremiumSplashScreen extends StatelessWidget {
-  const PremiumSplashScreen({super.key});
+// TAMBAHKAN: Simple Splash Screen untuk testing
+class SimpleAuthSplashScreen extends StatelessWidget {
+  const SimpleAuthSplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Navigate after 3 seconds
-    Future.delayed(const Duration(milliseconds: 3000), () {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const LoginScreen(),
-          transitionDuration: const Duration(milliseconds: 600),
-        ),
-      );
+    Future.delayed(const Duration(milliseconds: 1500), () async {
+      try {
+        final isLoggedIn = await AuthService.isLoggedIn();
+        final user = await AuthService.getUser();
+
+        if (isLoggedIn && user != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen(user: user)),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
+      } catch (e) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     });
 
+    return Scaffold(
+      backgroundColor: Colors.blue.shade700,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/Vector.png',
+              width: 100,
+              height: 100,
+              color: Colors.white,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'WargaKita',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Memeriksa sesi login...',
+              style: TextStyle(fontSize: 14, color: Colors.white70),
+            ),
+            const SizedBox(height: 40),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Premium Splash Screen dengan Auth Check
+class PremiumSplashWithAuth extends StatefulWidget {
+  const PremiumSplashWithAuth({super.key});
+
+  @override
+  State<PremiumSplashWithAuth> createState() => _PremiumSplashWithAuthState();
+}
+
+class _PremiumSplashWithAuthState extends State<PremiumSplashWithAuth> {
+  late String _status = 'Memulai aplikasi...';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    try {
+      setState(() => _status = 'Memuat konfigurasi...');
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      setState(() => _status = 'Memeriksa autentikasi...');
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final isLoggedIn = await AuthService.isLoggedIn();
+      final user = await AuthService.getUser();
+
+      if (isLoggedIn && user != null) {
+        setState(() => _status = 'Login terdeteksi...');
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                HomeScreen(user: user),
+            transitionDuration: const Duration(milliseconds: 600),
+          ),
+        );
+      } else {
+        setState(() => _status = 'Mengarahkan ke login...');
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const LoginScreen(),
+            transitionDuration: const Duration(milliseconds: 600),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Premium splash error: $e');
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFF),
       body: Container(
@@ -427,7 +655,6 @@ class PremiumSplashScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Premium Logo Container
               Hero(
                 tag: 'app-logo',
                 child: Container(
@@ -462,7 +689,6 @@ class PremiumSplashScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
 
-              // App Name dengan efek premium
               const Text(
                 'WargaKita',
                 style: TextStyle(
@@ -476,7 +702,6 @@ class PremiumSplashScreen extends StatelessWidget {
 
               const SizedBox(height: 10),
 
-              // Elegant Tagline
               const Text(
                 'Komunitas Digital Modern',
                 style: TextStyle(
@@ -487,9 +712,8 @@ class PremiumSplashScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 60),
+              const SizedBox(height: 40),
 
-              // Elegant Loading Indicator
               Container(
                 width: 60,
                 height: 60,
@@ -515,10 +739,9 @@ class PremiumSplashScreen extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-              // Loading Text
-              const Text(
-                'Menyiapkan pengalaman terbaik...',
-                style: TextStyle(
+              Text(
+                _status,
+                style: const TextStyle(
                   fontSize: 14,
                   color: Color(0xFF888888),
                   fontWeight: FontWeight.w500,

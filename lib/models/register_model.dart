@@ -1,3 +1,4 @@
+// models/register_model.dart
 class RegisterRequest {
   final String namaLengkap;
   final String nik;
@@ -29,69 +30,70 @@ class RegisterRequest {
     required this.rtRw,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'namaLengkap': namaLengkap,
-      'nik': nik,
-      'tanggalLahir': tanggalLahir,
-      'tempatLahir': tempatLahir,
-      'email': email,
-      'nomorTelepon': nomorTelepon,
-      'instagram': instagram,
-      'facebook': facebook,
-      'alamat': alamat,
-      'kota': kota,
-      'negara': negara,
-      'kodePos': kodePos,
-      'rtRw': rtRw,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'namaLengkap': namaLengkap,
+    'nik': nik,
+    'tanggalLahir': tanggalLahir,
+    'tempatLahir': tempatLahir,
+    'email': email,
+    'nomorTelepon': nomorTelepon,
+    'instagram': instagram,
+    'facebook': facebook,
+    'alamat': alamat,
+    'kota': kota,
+    'negara': negara,
+    'kodePos': kodePos,
+    'rtRw': rtRw,
+  };
 }
 
 class RegisterResponse {
   final String message;
-  final UserData user;
+  final User user;
 
   RegisterResponse({required this.message, required this.user});
 
   factory RegisterResponse.fromJson(Map<String, dynamic> json) {
     return RegisterResponse(
       message: json['message'],
-      user: UserData.fromJson(json['user']),
+      user: User.fromJson(json['user']),
     );
   }
 }
 
-class UserData {
-  final String id;
+class User {
+  final int id;
   final String namaLengkap;
   final String email;
-  final String? nik;
-  final String? nomorTelepon;
+  final String nik;
+  final String nomorTelepon;
   final String role;
   final bool isVerified;
+  final String? kkFile;
   final DateTime createdAt;
 
-  UserData({
+  User({
     required this.id,
     required this.namaLengkap,
     required this.email,
-    this.nik,
-    this.nomorTelepon,
+    required this.nik,
+    required this.nomorTelepon,
     required this.role,
     required this.isVerified,
+    this.kkFile,
     required this.createdAt,
   });
 
-  factory UserData.fromJson(Map<String, dynamic> json) {
-    return UserData(
-      id: json['id'].toString(),
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
       namaLengkap: json['namaLengkap'],
       email: json['email'],
       nik: json['nik'],
       nomorTelepon: json['nomorTelepon'],
       role: json['role'],
       isVerified: json['isVerified'],
+      kkFile: json['kkFile'],
       createdAt: DateTime.parse(json['createdAt']),
     );
   }

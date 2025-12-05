@@ -3,18 +3,97 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 
 class AuthService {
   static const String baseUrl = 'https://wargakita.canadev.my.id';
+  static const String _tokenKey = 'auth_token';
+  static const String _userKey = 'user_data';
 
   // Initialize Google Sign In
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
-    // Client ID akan auto-detected berdasarkan platform
   );
 
-  // 🔐 OTP METHODS
+  // ==================== TOKEN MANAGEMENT ====================
+  // Simpan token ke SharedPreferences
+  static Future<void> saveToken(String token) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, token);
+      print('✅ Token saved: ${token.substring(0, 20)}...');
+    } catch (e) {
+      print('❌ Error saving token: $e');
+    }
+  }
+
+  // Ambil token dari SharedPreferences
+  static Future<String?> getToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(_tokenKey);
+      if (token != null) {
+        print('✅ Token retrieved (length: ${token.length})');
+      } else {
+        print('⚠️ No token found');
+      }
+      return token;
+    } catch (e) {
+      print('❌ Error getting token: $e');
+      return null;
+    }
+  }
+
+  // Simpan user data
+  static Future<void> saveUser(User user) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = jsonEncode(user.toJson());
+      await prefs.setString(_userKey, userJson);
+      print('✅ User saved: ${user.email}');
+    } catch (e) {
+      print('❌ Error saving user: $e');
+    }
+  }
+
+  // Ambil user data
+  static Future<User?> getUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = prefs.getString(_userKey);
+      if (userJson != null) {
+        final userData = jsonDecode(userJson);
+        return User.fromJson(userData);
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error getting user: $e');
+      return null;
+    }
+  }
+
+  // Logout - hapus semua data
+  static Future<void> logout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_tokenKey);
+      await prefs.remove(_userKey);
+      await _googleSignIn.signOut();
+      print('✅ Logout successful');
+    } catch (e) {
+      print('❌ Error during logout: $e');
+    }
+  }
+
+  // Cek apakah user sudah login
+  static Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    final user = await getUser();
+    return token != null && user != null;
+  }
+
+  // ==================== AUTH METHODS ====================
   Future<OtpResponse> sendOtp(String email) async {
     try {
       final response = await http.post(
@@ -34,8 +113,11 @@ class AuthService {
     }
   }
 
+  // services/auth_service.dart - UPDATE bagian verifyOtp
   Future<AuthResponse> verifyOtp(String email, String otp) async {
     try {
+      print('📱 Verifying OTP for: $email');
+
       final response = await http
           .post(
             Uri.parse('$baseUrl/auth/verify-otp'),
@@ -48,15 +130,36 @@ class AuthService {
           .timeout(const Duration(seconds: 15));
 
       final responseData = json.decode(response.body);
+      print('📡 Response Status: ${response.statusCode}');
+      print('📦 Response Body: ${response.body}');
 
       if (response.statusCode.toString().startsWith("2")) {
-        return _parseAuthResponse(responseData);
+        final authResponse = _parseAuthResponse(responseData);
+
+        // ✅ SIMPAN TOKEN JIKA ADA
+        if (authResponse.accessToken != null) {
+          await saveToken(authResponse.accessToken!);
+          print(
+            '✅ Token saved: ${authResponse.accessToken!.substring(0, 20)}...',
+          );
+        } else {
+          print('⚠️ No access token received from server');
+        }
+
+        // ✅ SIMPAN USER DATA
+        if (authResponse.user != null) {
+          await saveUser(authResponse.user!);
+          print('✅ User data saved: ${authResponse.user!.email}');
+        }
+
+        return authResponse;
       } else {
         final errorMessage =
             responseData['message'] ?? 'OTP verification failed';
         throw Exception(errorMessage);
       }
     } catch (e) {
+      print('❌ OTP verification error: $e');
       throw Exception('Terjadi kesalahan: $e');
     }
   }
@@ -65,11 +168,8 @@ class AuthService {
   Future<AuthResponse> signInWithGoogle() async {
     try {
       print('🔐 Starting real Google Sign In...');
-
-      // Sign out dulu untuk clear session sebelumnya
       await _googleSignIn.signOut();
 
-      // Trigger Google Sign In
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
@@ -78,15 +178,9 @@ class AuthService {
 
       print('✅ Google user selected: ${googleUser.email}');
 
-      // Get authentication details
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      print('🔑 Google auth completed');
-      print('   ID Token: ${googleAuth.idToken != null ? '✓' : '✗'}');
-      print('   Access Token: ${googleAuth.accessToken != null ? '✓' : '✗'}');
-
-      // Send to backend dengan ID Token (recommended untuk security)
       final response = await http
           .post(
             Uri.parse('$baseUrl/auth/google/mobile'),
@@ -95,9 +189,8 @@ class AuthService {
               'Accept': 'application/json',
             },
             body: json.encode({
-              'idToken':
-                  googleAuth.idToken, // Gunakan ID Token untuk verification
-              'accessToken': googleAuth.accessToken, // Backup
+              'idToken': googleAuth.idToken,
+              'accessToken': googleAuth.accessToken,
               'email': googleUser.email,
               'name': googleUser.displayName,
               'picture': googleUser.photoUrl,
@@ -105,40 +198,32 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 15));
 
-      print('📡 Backend response status: ${response.statusCode}');
-      print('📦 Backend response body: ${response.body}');
-
       if (response.statusCode.toString().startsWith('2')) {
         final responseData = json.decode(response.body);
-        print('✅ Real Google login successful');
+        final authResponse = _parseAuthResponse(responseData);
 
-        return _parseAuthResponse(responseData);
+        // Simpan token jika ada
+        if (authResponse.accessToken != null) {
+          await saveToken(authResponse.accessToken!);
+        }
+
+        // Simpan user data
+        if (authResponse.user != null) {
+          await saveUser(authResponse.user!);
+        }
+
+        return authResponse;
       } else {
         final errorData = json.decode(response.body);
         final errorMessage =
             errorData['message'] ?? 'Gagal login dengan Google';
         throw Exception(errorMessage);
       }
-    } on http.ClientException catch (e) {
-      print('🌐 Network error: $e');
+    } on http.ClientException {
       throw Exception('Koneksi internet bermasalah');
     } on TimeoutException {
-      print('⏰ Request timeout');
       throw Exception('Timeout - server tidak merespons');
     } catch (error) {
-      print('💥 Real Google sign in error: $error');
-
-      // Handle specific Google Sign In errors
-      if (error.toString().contains('sign_in_failed')) {
-        throw Exception(
-          'Google Sign In gagal. Pastikan Google Play Services terinstall dan updated.',
-        );
-      } else if (error.toString().contains('network_error')) {
-        throw Exception('Koneksi internet bermasalah');
-      } else if (error.toString().contains('INVALID_ACCOUNT')) {
-        throw Exception('Akun Google tidak valid');
-      }
-
       throw Exception('Gagal login dengan Google: $error');
     }
   }
@@ -150,8 +235,7 @@ class AuthService {
 
   // Sign out from Google
   Future<void> signOutGoogle() async {
-    await _googleSignIn.signOut();
-    print('✅ Signed out from Google');
+    await logout(); // Use our logout method
   }
 
   // Method untuk parsing response
@@ -162,7 +246,6 @@ class AuthService {
         responseData['user'] is Map<String, dynamic>) {
       try {
         user = User.fromJson(responseData['user']);
-        print('✅ User data parsed: ${user.name}');
       } catch (e) {
         print('⚠️ Error parsing user data: $e');
         user = _createFallbackUser(responseData);
@@ -175,8 +258,6 @@ class AuthService {
     String? accessToken =
         responseData['access_token'] ?? responseData['accessToken'];
 
-    print('🔑 Access Token: ${accessToken != null ? '✓' : '✗'}');
-
     return AuthResponse(message: message, user: user, accessToken: accessToken);
   }
 
@@ -184,10 +265,20 @@ class AuthService {
     return User(
       id:
           responseData['userId']?.toString() ??
+          responseData['user']['id']?.toString() ??
           'user_${DateTime.now().millisecondsSinceEpoch}',
-      email: responseData['email']?.toString() ?? 'unknown@email.com',
-      name: responseData['name']?.toString() ?? 'Google User',
-      role: responseData['role']?.toString() ?? 'user',
+      email:
+          responseData['email']?.toString() ??
+          responseData['user']['email']?.toString() ??
+          'unknown@email.com',
+      name:
+          responseData['name']?.toString() ??
+          responseData['user']['name']?.toString() ??
+          'User',
+      role:
+          responseData['role']?.toString() ??
+          responseData['user']['role']?.toString() ??
+          'user',
     );
   }
 
@@ -208,5 +299,21 @@ class AuthService {
     } catch (e) {
       throw Exception('Gagal mengirim ulang OTP: $e');
     }
+  }
+
+  // Get auth headers untuk API calls
+  static Future<Map<String, String>> getAuthHeaders() async {
+    final token = await getToken();
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    return headers;
   }
 }

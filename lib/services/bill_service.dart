@@ -2,7 +2,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/bill_model.dart';
-import '../models/user_model.dart';
 
 class BillService {
   static const String baseUrl = 'https://wargakita.canadev.my.id';
@@ -225,6 +224,78 @@ class BillService {
       }
     } catch (e) {
       print('❌ Error getting bill summary: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> generateQRIS(String billId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/bills/$billId/generate-qris'),
+        headers: _headers,
+      );
+
+      if (response.statusCode.toString().startsWith('2')) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to generate QRIS: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error generating QRIS: $e');
+      rethrow;
+    }
+  }
+
+  // ✅ METHOD BARU: Create pending payment
+  Future<Bill> createPendingPayment(
+    String billId, {
+    required String method,
+    String? receiptImage,
+    String? qrData,
+  }) async {
+    try {
+      final requestBody = {
+        'method': method,
+        if (receiptImage != null) 'receiptImage': receiptImage,
+        if (qrData != null) 'qrData': qrData,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/bills/$billId/pending-payment'),
+        headers: _headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode.toString().startsWith('2')) {
+        final data = json.decode(response.body);
+        return Bill.fromJson(data);
+      } else {
+        throw Exception(
+          'Failed to create pending payment: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      print('❌ Error creating pending payment: $e');
+      rethrow;
+    }
+  }
+
+  // ✅ METHOD BARU: Check payment status
+  Future<Bill> getBillStatus(String billId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/bills/$billId'),
+        headers: _headers,
+      );
+
+      if (response.statusCode.toString().startsWith('2')) {
+        final data = json.decode(response.body);
+        return Bill.fromJson(data);
+      } else {
+        throw Exception('Failed to get bill status: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error getting bill status: $e');
       rethrow;
     }
   }

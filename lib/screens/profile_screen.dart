@@ -258,7 +258,7 @@ class ProfileScreen extends StatelessWidget {
                                 children: [
                                   Icon(Icons.logout, size: 20),
                                   SizedBox(width: 8),
-                                  Text('Keluar'),
+                                  Text('Keluar' ),
                                 ],
                               ),
                             ),
@@ -1200,7 +1200,7 @@ class ProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Keluar'),
+            child: const Text('Keluar' , style : TextStyle(color : Colors.white)),
           ),
         ],
       ),

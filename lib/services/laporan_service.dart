@@ -15,7 +15,7 @@ class LaporanService {
       body: json.encode(laporan.toJson()),
     );
 
-    if (response.statusCode == 201) {
+    if (response.statusCode.toString().startsWith('2')) {
       return Laporan.fromJson(json.decode(response.body));
     } else {
       throw Exception('Gagal mengirim laporan: ${response.statusCode}');
@@ -26,7 +26,7 @@ class LaporanService {
   static Future<List<Laporan>> getAllLaporan() async {
     final response = await http.get(Uri.parse(baseUrl));
 
-    if (response.statusCode == 200) {
+    if (response.statusCode.toString().startsWith('2')) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((json) => Laporan.fromJson(json)).toList();
     } else {
@@ -53,7 +53,7 @@ class LaporanService {
       body: json.encode(laporan.toJson()),
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode.toString().startsWith('2')) {
       return Laporan.fromJson(json.decode(response.body));
     } else {
       throw Exception('Gagal mengupdate laporan');
@@ -64,7 +64,7 @@ class LaporanService {
   static Future<void> deleteLaporan(int id) async {
     final response = await http.delete(Uri.parse('$baseUrl/$id'));
 
-    if (response.statusCode != 200) {
+    if (!response.statusCode.toString().startsWith('2')) {
       throw Exception('Gagal menghapus laporan');
     }
   }
@@ -75,7 +75,7 @@ class LaporanService {
       Uri.parse('$baseUrl/search?keyword=$keyword'),
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode.toString().startsWith('2')) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((json) => Laporan.fromJson(json)).toList();
     } else {
@@ -87,7 +87,7 @@ class LaporanService {
   static Future<List<Laporan>> getLaporanByCategory(String category) async {
     final response = await http.get(Uri.parse('$baseUrl/category/$category'));
 
-    if (response.statusCode == 200) {
+    if (response.statusCode.toString().startsWith('2')) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((json) => Laporan.fromJson(json)).toList();
     } else {

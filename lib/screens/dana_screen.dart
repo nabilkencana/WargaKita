@@ -16,7 +16,7 @@ class DanaScreen extends StatefulWidget {
 }
 
 class _DanaScreenState extends State<DanaScreen> with TickerProviderStateMixin {
-  int _selectedTab = 0; // 0: Tagihan, 1: Riwayat
+// 0: Tagihan, 1: Riwayat
   final List<String> _tabs = ['Tagihan Saya', 'Riwayat'];
   late TabController _tabController;
 
@@ -33,7 +33,6 @@ class _DanaScreenState extends State<DanaScreen> with TickerProviderStateMixin {
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() {
       setState(() {
-        _selectedTab = _tabController.index;
       });
     });
     _initializeServices();
@@ -48,7 +47,7 @@ class _DanaScreenState extends State<DanaScreen> with TickerProviderStateMixin {
 
   void _initializeServices() {
     final token =
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoibmFiaWxrZW5jYW5hMjBAZ21haWwuY29tIiwicm9sZSI6IlNVUEVSX0FETUlOIiwibmFtZSI6Ik5hYmlsIEFkbWluIiwiaWF0IjoxNzY0MTIxMDYxLCJleHAiOjE3NjQyMDc0NjF9.Kb8-prxIafi55ye_gqCOpHeCKh2fhJ5sqcGTvWE03yc';
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoibmFiaWxrZW5jYW5hMjBAZ21haWwuY29tIiwicm9sZSI6IkFETUlOIiwibmFtZSI6Ik5hYmlsIEFkbWluIiwiaWF0IjoxNzY0NDczNTIyLCJleHAiOjE3NjQ1NTk5MjJ9.wu7910__ofv0VLFdrSbHaoFN1gFtI5RmP_YTw4GLXW0';
     _transactionService = TransactionService(token);
     _billService = BillService(token);
   }
@@ -102,6 +101,7 @@ class _DanaScreenState extends State<DanaScreen> with TickerProviderStateMixin {
     await _loadData();
   }
 
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -248,7 +248,7 @@ class _DanaScreenState extends State<DanaScreen> with TickerProviderStateMixin {
                       ),
                     ),
                     Text(
-                      widget.user.email ?? 'user@example.com',
+                      widget.user.email,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 12,
@@ -1387,23 +1387,13 @@ class _DanaScreenState extends State<DanaScreen> with TickerProviderStateMixin {
         ),
       );
 
-      Bill paymentResult;
 
       // Coba dengan format yang sesuai backend
       try {
         print('🔄 Mencoba bayar dengan format backend: $paymentMethod');
-        paymentResult = await _billService!.payBill(
-          bill.id,
-          paymentMethod: paymentMethod,
-          qrData: qrData,
-        );
       } catch (e) {
         print('❌ Format lengkap gagal, coba format minimal: $e');
         // Fallback: coba format minimal
-        paymentResult = await _billService!.payBillMinimal(
-          bill.id,
-          paymentMethod,
-        );
       }
 
       // Close processing dialog
@@ -1466,64 +1456,6 @@ class _DanaScreenState extends State<DanaScreen> with TickerProviderStateMixin {
   }
 
   // Juga perbaiki method showSimplePaymentDialog untuk menggunakan method yang baru
-  void _showSimplePaymentDialog(Bill bill) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.payment, color: Colors.blue),
-            SizedBox(width: 12),
-            Text('Bayar Tagihan'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              bill.title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Rp ${_formatCurrency(bill.amount)}',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Pilih metode pembayaran:',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            ...['QRIS', 'CASH', 'BANK_TRANSFER', 'MOBILE_BANKING'].map((
-              method,
-            ) {
-              return ListTile(
-                leading: _getPaymentMethodIcon(method),
-                title: Text(_getPaymentMethodName(method)),
-                subtitle: Text(_getPaymentMethodDescription(method)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _processPayment(bill, method);
-                },
-              );
-            }).toList(),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-        ],
-      ),
-    );
-  }
 
   // Pastikan method helper ini ada
   String _getPaymentMethodName(String method) {
@@ -1623,21 +1555,4 @@ class _DanaScreenState extends State<DanaScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 4),
-      ),
-    );
-  }
 }

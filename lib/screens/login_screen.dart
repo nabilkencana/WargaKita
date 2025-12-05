@@ -3,7 +3,6 @@ import 'package:flutter_latihan1/models/user_model.dart';
 import 'package:flutter_latihan1/screens/register_screen.dart';
 import 'package:flutter_latihan1/screens/home_screen.dart';
 import '../services/auth_service.dart';
-import 'verify_otp_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,52 +20,78 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _rememberMe = false;
+  bool _isEmailValid = false;
+  bool _showEmailHint = true;
 
   late AnimationController _controller;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _headerScaleAnimation;
 
+  static const _primaryColor = Color(0xFF0D6EFD);
+  static const _animationDuration = Duration(milliseconds: 1200);
+  static const _transitionDuration = Duration(milliseconds: 600);
+  static const _inputBorderRadius = BorderRadius.all(Radius.circular(16));
+  static const _containerBorderRadius = BorderRadius.all(Radius.circular(28));
+  static const _buttonBorderRadius = BorderRadius.all(Radius.circular(16));
+
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
     _checkExistingGoogleUser();
+    _setupEmailListener();
   }
 
   void _initializeAnimations() {
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: _animationDuration,
       vsync: this,
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.4),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.3, 1.0, curve: Curves.easeIn),
+        curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
       ),
     );
 
     _headerScaleAnimation = Tween<double>(
-      begin: 0.8,
+      begin: 0.7,
       end: 1,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
     _controller.forward();
   }
 
-  // 🎯 METHOD BARU: Cek apakah sudah ada user Google yang login
+  void _setupEmailListener() {
+    _emailController.addListener(() {
+      final email = _emailController.text.trim();
+      final isValid = _validateEmailFormat(email);
+
+      setState(() {
+        _isEmailValid = isValid;
+        _showEmailHint = email.isEmpty;
+      });
+    });
+  }
+
+  bool _validateEmailFormat(String email) {
+    if (email.isEmpty) return false;
+    final emailRegex = RegExp(r'^[\w\.-]+@gmail\.com$');
+    return emailRegex.hasMatch(email);
+  }
+
   Future<void> _checkExistingGoogleUser() async {
     try {
       final currentUser = await _authService.getCurrentGoogleUser();
       if (currentUser != null) {
         print('🔍 Found existing Google user: ${currentUser.email}');
-        // Bisa tambahkan auto-login di sini jika diperlukan
       }
     } catch (e) {
       print('⚠️ Error checking existing Google user: $e');
@@ -76,224 +101,332 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _sendOtp() async {
     final email = _emailController.text.trim();
 
-    // Validasi email kosong
     if (email.isEmpty) {
       _showError('Email tidak boleh kosong');
       return;
     }
 
-    // Validasi format email
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      _showError('Format email tidak valid');
+    if (!_isEmailValid) {
+      _showError('Format email harus @gmail.com');
       return;
     }
 
+    FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
 
     try {
-      // Kirim OTP langsung - backend akan handle validasi email
-      final otpResponse = await _authService.sendOtp(email);
+      await _authService.sendOtp(email);
+      _showSuccess('Kode OTP telah dikirim ke $email');
 
-      _showSuccess('OTP telah dikirim ke $email');
+      await Future.delayed(const Duration(milliseconds: 800));
 
-      // Navigate ke OTP screen
-      Navigator.push(
+      Navigator.pushNamed(
         context,
-        MaterialPageRoute(
-          builder: (context) => VerifyOtpScreen(
-            email: email,
-            onResendOtp: () => _resendOtp(email),
-          ),
-        ),
+        '/verify-otp',
+        arguments: {'email': email, 'onResendOtp': () => _resendOtp(email)},
       );
     } catch (e) {
-      // Handle error khusus untuk email tidak ditemukan
       if (e.toString().contains('Email tidak ditemukan')) {
         _showEmailNotRegisteredDialog(email);
       } else {
-        _showError('Gagal mengirim OTP: $e');
+        _showError(
+          'Gagal mengirim OTP: ${e.toString().replaceAll('Exception: ', '')}',
+        );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  // 🎯 METHOD BARU: Resend OTP
   Future<void> _resendOtp(String email) async {
     try {
       await _authService.resendOtp(email);
       _showSuccess('OTP berhasil dikirim ulang');
     } catch (e) {
-      _showError('Gagal mengirim ulang OTP: $e');
+      _showError(
+        'Gagal mengirim ulang OTP: ${e.toString().replaceAll('Exception: ', '')}',
+      );
     }
   }
 
-  // 🔐 GOOGLE SIGN IN - DENGAN VALIDASI EMAIL
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
 
     try {
-      print('🎯 Starting Google sign in process...');
-
       final AuthResponse result = await _authService.signInWithGoogle();
 
       if (result.user != null) {
-        print('✅ Google sign in successful!');
-        print('👤 User: ${result.user?.name}');
-        print('📧 Email: ${result.user?.email}');
-        print('🔑 Token: ${result.accessToken != null ? '✓' : '✗'}');
-
         _showSuccess('Login dengan Google berhasil!');
-
-        // Simpan data auth
         _saveAuthData(result);
-
-        // Navigate ke home screen
         _navigateToHome(result);
       } else {
         throw Exception('User data tidak ditemukan dari backend');
       }
     } catch (e) {
-      print('❌ Google sign in failed: $e');
-
-      // Handle error spesifik untuk Google Sign In
       if (e.toString().contains('ApiException: 10')) {
         _showGooglePlayServicesError();
       } else {
         _showGoogleSignInError(e);
       }
     } finally {
-      setState(() => _isGoogleLoading = false);
+      if (mounted) {
+        setState(() => _isGoogleLoading = false);
+      }
     }
   }
 
-  // 🎯 METHOD BARU: Handle error Google Play Services
   void _showGooglePlayServicesError() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('Google Play Services Required'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Google Play Services tidak tersedia atau perlu diupdate.',
-                style: TextStyle(fontSize: 14),
-              ),
-              SizedBox(height: 12),
-              Text('Pastikan:', style: TextStyle(fontWeight: FontWeight.bold)),
-              SizedBox(height: 8),
-              Text('• Google Play Services terinstall'),
-              Text('• Koneksi internet stabil'),
-              Text('• Device support Google Play'),
-            ],
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Tutup'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Bisa tambahkan logika untuk membuka Play Store
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF0D6EFD),
-              ),
-              child: Text('Buka Play Store'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // 🎯 METHOD BARU: Dialog email tidak terdaftar
-  void _showEmailNotRegisteredDialog(String email) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.person_add_alt_1, color: Colors.blue),
-              SizedBox(width: 8),
-              Text('Email Tidak Terdaftar'),
-            ],
-          ),
-          content: Text(
-            'Email $email belum terdaftar di sistem. Apakah Anda ingin mendaftar dengan email ini?',
-            style: TextStyle(fontSize: 14),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Coba Email Lain',
-                style: TextStyle(color: const Color.fromARGB(255, 94, 94, 94)),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _navigateToRegisterWithEmail(email);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF0D6EFD),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text('Daftar Sekarang' , style: TextStyle(color: Colors.white),),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // 🎯 METHOD BARU: Navigasi ke register dengan email yang sudah terisi
-  void _navigateToRegisterWithEmail(String email) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => RegisterScreen(prefilledEmail: email),
+      builder: (BuildContext context) => _buildErrorDialog(
+        icon: Icons.error_outline,
+        iconColor: Colors.orange,
+        backgroundColor: Colors.orange.shade50,
+        title: 'Perhatian',
+        message: 'Google Play Services diperlukan untuk login dengan Google',
+        primaryButtonText: 'Perbaiki',
+        primaryButtonAction: () {
+          Navigator.of(context).pop();
+          // TODO: Implement buka Play Store
+        },
       ),
     );
   }
 
-  // 🎯 METHOD BARU: Handle error Google Sign In yang lebih spesifik
+  void _showEmailNotRegisteredDialog(String email) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => _buildRegisterDialog(email),
+    );
+  }
+
+  Widget _buildErrorDialog({
+    required IconData icon,
+    required Color iconColor,
+    required Color backgroundColor,
+    required String title,
+    required String message,
+    required String primaryButtonText,
+    required VoidCallback primaryButtonAction,
+  }) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 40),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey.shade600,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildOutlinedButton(
+                    text: 'Tutup',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildElevatedButton(
+                    text: primaryButtonText,
+                    onPressed: primaryButtonAction,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegisterDialog(String email) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person_add_alt_1,
+                color: Colors.blue,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Email Belum Terdaftar',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+                children: [
+                  const TextSpan(text: 'Email '),
+                  TextSpan(
+                    text: email,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                  const TextSpan(
+                    text: ' belum terdaftar. Yuk daftar sekarang!',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildOutlinedButton(
+                    text: 'Ganti Email',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildElevatedButton(
+                    text: 'Daftar',
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _navigateToRegisterWithEmail(email);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutlinedButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: Colors.grey.shade700,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildElevatedButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _primaryColor,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 2,
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToRegisterWithEmail(String email) {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            RegisterScreen(prefilledEmail: email),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            _createSlideTransition(animation, child),
+        transitionDuration: _transitionDuration,
+      ),
+    );
+  }
+
   void _showGoogleSignInError(dynamic error) {
     String errorMessage;
 
     if (error.toString().contains('sign_in_failed')) {
       errorMessage =
-          'Google Sign-In gagal. Pastikan Google Play Services terinstall dan updated.';
-    } else if (error.toString().contains('network_error') ||
-        error.toString().contains('Koneksi internet bermasalah')) {
+          'Google Sign-In gagal. Pastikan Google Play Services terinstall.';
+    } else if (error.toString().contains('network_error')) {
       errorMessage = 'Koneksi internet bermasalah. Periksa koneksi Anda.';
-    } else if (error.toString().contains('Timeout')) {
-      errorMessage = 'Server tidak merespons. Coba lagi nanti.';
     } else if (error.toString().contains('INVALID_ACCOUNT')) {
       errorMessage = 'Akun Google tidak valid.';
     } else if (error.toString().contains('dibatalkan')) {
-      errorMessage = 'Login dengan Google dibatalkan.';
-      return; // Tidak perlu show error untuk cancel
+      return;
     } else if (error.toString().contains('Email tidak ditemukan')) {
       errorMessage =
           'Akun Google belum terdaftar. Silakan daftar terlebih dahulu.';
@@ -306,18 +439,11 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _saveAuthData(AuthResponse result) {
-    // TODO: Implement penyimpanan token menggunakan SharedPreferences
     print('💾 Saving auth data...');
-    print('   User ID: ${result.user?.id}');
     print('   User Email: ${result.user?.email}');
-    print('   User Name: ${result.user?.name}');
-    print('   User Role: ${result.user?.role}');
-    print('   Access Token: ${result.accessToken}');
 
-    // Simpan remember me preference
     if (_rememberMe) {
       print('💾 Remember me: true');
-      // TODO: Simpan ke SharedPreferences
     }
   }
 
@@ -325,7 +451,13 @@ class _LoginScreenState extends State<LoginScreen>
     if (result.user != null) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => HomeScreen(user: result.user!)),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              HomeScreen(user: result.user!),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+              _createSlideTransition(animation, child),
+          transitionDuration: _transitionDuration,
+        ),
         (route) => false,
       );
     } else {
@@ -333,21 +465,14 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  // 🎯 METHOD BARU: Validasi email sebelum login
-  void _validateEmailAndProceed() {
-    final email = _emailController.text.trim();
+  Widget _createSlideTransition(Animation<double> animation, Widget child) {
+    const begin = Offset(1.0, 0.0);
+    const end = Offset.zero;
+    const curve = Curves.easeInOutCubic;
 
-    if (email.isEmpty) {
-      _showError('Email tidak boleh kosong');
-      return;
-    }
+    final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
 
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      _showError('Format email tidak valid');
-      return;
-    }
-
-    _sendOtp();
+    return SlideTransition(position: animation.drive(tween), child: child);
   }
 
   void _showError(String message) {
@@ -357,16 +482,40 @@ class _LoginScreenState extends State<LoginScreen>
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.error_outline, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Expanded(child: Text(message)),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           ],
         ),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 4,
-        duration: Duration(seconds: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 6,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Tutup',
+          textColor: Colors.white,
+          onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+        ),
       ),
     );
   }
@@ -378,16 +527,481 @@ class _LoginScreenState extends State<LoginScreen>
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Expanded(child: Text(message)),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           ],
         ),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.green.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 4,
-        duration: Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 6,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: _buttonBorderRadius,
+        boxShadow: _isGoogleLoading
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: OutlinedButton(
+        onPressed: _isGoogleLoading ? null : _signInWithGoogle,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          side: BorderSide(color: Colors.grey.shade300, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: _buttonBorderRadius),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+        ),
+        child: _isGoogleLoading
+            ? SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: _primaryColor,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/google.png',
+                    width: 26,
+                    height: 26,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Lanjutkan dengan Google',
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildEmailInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Alamat Email',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 12),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          decoration: BoxDecoration(
+            borderRadius: _inputBorderRadius,
+            border: Border.all(
+              color: _emailFocusNode.hasFocus
+                  ? _primaryColor.withOpacity(0.8)
+                  : _isEmailValid && _emailController.text.isNotEmpty
+                  ? Colors.green.shade400
+                  : Colors.grey.shade300,
+              width: _emailFocusNode.hasFocus ? 2.5 : 1.5,
+            ),
+            boxShadow: _emailFocusNode.hasFocus
+                ? [
+                    BoxShadow(
+                      color: _primaryColor.withOpacity(0.15),
+                      blurRadius: 15,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : [],
+          ),
+          child: TextField(
+            controller: _emailController,
+            focusNode: _emailFocusNode,
+            decoration: InputDecoration(
+              hintText: 'nama@gmail.com',
+              hintStyle: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 15,
+                // FIX: Gunakan font yang sama dengan input text
+                fontFamily: 'Roboto', // Sesuaikan dengan font utama Anda
+                fontWeight: FontWeight.normal,
+              ),
+              border: InputBorder.none,
+              // FIX: Tambahkan constraints pada placeholder
+              constraints: const BoxConstraints(
+                minHeight: 56, // Sesuaikan dengan tinggi TextField
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 18,
+              ),
+              prefixIcon: Icon(
+                Icons.email_outlined,
+                color: _emailFocusNode.hasFocus
+                    ? _primaryColor
+                    : Colors.grey.shade500,
+                size: 22,
+              ),
+              suffixIcon: _emailController.text.isNotEmpty
+                  ? AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: _isEmailValid
+                          ? Icon(
+                              Icons.check_circle_rounded,
+                              color: Colors.green,
+                              size: 24,
+                            )
+                          : Icon(
+                              Icons.error_outline_rounded,
+                              color: Colors.orange,
+                              size: 24,
+                            ),
+                    )
+                  : null,
+            ),
+            keyboardType: TextInputType.emailAddress,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade800,
+              // FIX: Pastikan font placeholder dan input sama
+              fontFamily: 'Roboto', // Sesuaikan dengan font placeholder
+            ),
+            onSubmitted: (_) => _sendOtp(),
+          ),
+        ),
+        if (_showEmailHint)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 4),
+            child: Text(
+              'Gunakan email dengan format @gmail.com',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLoginButton() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: _buttonBorderRadius,
+        boxShadow: _isLoading || !_isEmailValid
+            ? []
+            : [
+                BoxShadow(
+                  color: _primaryColor.withOpacity(0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+      ),
+      child: ElevatedButton(
+        onPressed: (_isLoading || !_isEmailValid) ? null : _sendOtp,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _isEmailValid ? _primaryColor : Colors.grey.shade400,
+          shape: RoundedRectangleBorder(borderRadius: _buttonBorderRadius),
+          elevation: 0,
+        ),
+        child: _isLoading
+            ? SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Masuk',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildDividerWithLabel() {
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(color: Colors.grey.shade300, thickness: 1, height: 1),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'atau dengan email',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Divider(color: Colors.grey.shade300, thickness: 1, height: 1),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRememberMeCheckbox() {
+    return Row(
+      children: [
+        Transform.scale(
+          scale: 1.2,
+          child: Checkbox(
+            activeColor: _primaryColor,
+            value: _rememberMe,
+            onChanged: (value) {
+              setState(() {
+                _rememberMe = value ?? false;
+              });
+            },
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'Ingat perangkat ini',
+          style: TextStyle(
+            fontSize: 15,
+            color: Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRegisterSection() {
+    return Center(
+      child: Column(
+        children: [
+          Text(
+            'Belum punya akun?',
+            style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const RegisterScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) =>
+                          _createSlideTransition(animation, child),
+                  transitionDuration: _transitionDuration,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade100, width: 1.5),
+              ),
+              child: Text(
+                'Daftar Sekarang',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: _primaryColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          height: 320,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_primaryColor, const Color(0xFF1E88E5)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(40),
+              bottomRight: Radius.circular(40),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: ScaleTransition(
+            scale: _headerScaleAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.3),
+                        Colors.white.withOpacity(0.1),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 25,
+                        spreadRadius: 3,
+                      ),
+                    ],
+                  ),
+                  child: Image.asset(
+                    'assets/images/Vector.png',
+                    width: 70,
+                    height: 70,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Selamat Datang Di WargaKita',
+                  style: TextStyle(
+                    fontSize: 26,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(
+                    'Masuk dengan email @gmail.com atau akun Google untuk melanjutkan',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white70,
+                      height: 1.5,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormSection() {
+    return SlideTransition(
+      position: _slideAnimation,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: _containerBorderRadius,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blueGrey.withOpacity(0.15),
+                  blurRadius: 40,
+                  spreadRadius: 5,
+                  offset: const Offset(0, 20),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildGoogleButton(),
+                const SizedBox(height: 32),
+                _buildDividerWithLabel(),
+                const SizedBox(height: 32),
+                _buildEmailInput(),
+                const SizedBox(height: 20),
+                _buildRememberMeCheckbox(),
+                const SizedBox(height: 28),
+                _buildLoginButton(),
+                const SizedBox(height: 24),
+                _buildRegisterSection(),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -396,399 +1010,17 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // HEADER
-            Stack(
-              children: [
-                Container(
-                  width: double.infinity,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF0D6EFD), Color(0xFF1E88E5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(50),
-                      bottomRight: Radius.circular(50),
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: ScaleTransition(
-                    scale: _headerScaleAnimation,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 15,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: Image.asset(
-                            'assets/images/Vector.png',
-                            width: 70,
-                            height: 70,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Masuk ke Akun Anda',
-                          style: TextStyle(
-                            fontSize: 26,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black12,
-                                blurRadius: 4,
-                                offset: Offset(1, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 40),
-                          child: Text(
-                            'Masuk dengan Email atau Google untuk memulai',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white70,
-                              height: 1.5,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            // FORM CARD
-            SlideTransition(
-              position: _slideAnimation,
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 30,
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blueGrey.withOpacity(0.12),
-                          blurRadius: 35,
-                          spreadRadius: 3,
-                          offset: const Offset(0, 15),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: Colors.grey.withOpacity(0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Tombol Google - DENGAN ERROR HANDLING
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: OutlinedButton(
-                            onPressed: _isGoogleLoading
-                                ? null
-                                : _signInWithGoogle,
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: BorderSide(
-                                color: Colors.grey.shade300,
-                                width: 1.5,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                            ),
-                            child: _isGoogleLoading
-                                ? SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Color(0xFF0D6EFD),
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/google.png',
-                                        width: 22,
-                                        height: 22,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      const Text(
-                                        'Lanjutkan dengan Google',
-                                        style: TextStyle(
-                                          color: Colors.black87,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Divider
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Divider(
-                                color: Colors.grey.shade300,
-                                thickness: 1,
-                                height: 1,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Text(
-                                'atau login dengan email',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Divider(
-                                color: Colors.grey.shade300,
-                                thickness: 1,
-                                height: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Input email
-                        Text(
-                          'Alamat Email',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: _emailFocusNode.hasFocus
-                                  ? Color(0xFF0D6EFD).withOpacity(0.8)
-                                  : Colors.grey.shade300,
-                              width: _emailFocusNode.hasFocus ? 2 : 1.5,
-                            ),
-                            boxShadow: _emailFocusNode.hasFocus
-                                ? [
-                                    BoxShadow(
-                                      color: Color(
-                                        0xFF0D6EFD,
-                                      ).withOpacity(0.15),
-                                      blurRadius: 12,
-                                      spreadRadius: 2,
-                                    ),
-                                  ]
-                                : [],
-                          ),
-                          child: TextField(
-                            controller: _emailController,
-                            focusNode: _emailFocusNode,
-                            decoration: InputDecoration(
-                              hintText: 'Masukkan email anda',
-                              hintStyle: TextStyle(
-                                color: Colors.grey.shade500,
-                                fontSize: 14,
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.email_outlined,
-                                color: _emailFocusNode.hasFocus
-                                    ? Color(0xFF0D6EFD)
-                                    : Colors.grey.shade500,
-                                size: 22,
-                              ),
-                            ),
-                            keyboardType: TextInputType.emailAddress,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade800,
-                            ),
-                            onSubmitted: (_) => _validateEmailAndProceed(),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Checkbox Ingat Saya
-                        Row(
-                          children: [
-                            Transform.scale(
-                              scale: 1.1,
-                              child: Checkbox(
-                                activeColor: const Color(0xFF0D6EFD),
-                                value: _rememberMe,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _rememberMe = value ?? false;
-                                  });
-                                },
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Ingat saya',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade700,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Spacer(),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Tombol Masuk
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _sendOtp,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0D6EFD),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              elevation: 5,
-                              shadowColor: Color(0xFF0D6EFD).withOpacity(0.4),
-                            ),
-                            child: _isLoading
-                                ? SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Masuk',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        Icons.arrow_forward_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Tombol Daftar
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: OutlinedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const RegisterScreen(),
-                                ),
-                              );
-                            },
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: Color(0xFF0D6EFD),
-                                width: 1.5,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              backgroundColor: Colors.transparent,
-                            ),
-                            child: Text(
-                              'Daftar',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF0D6EFD),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(child: _buildFormSection()),
+                ],
               ),
             ),
           ],

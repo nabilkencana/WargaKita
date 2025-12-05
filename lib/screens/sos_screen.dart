@@ -16,7 +16,6 @@ class SosScreen extends StatefulWidget {
 class _SosScreenState extends State<SosScreen> {
   final SosService _sosService = SosService();
   bool _isLoading = false;
-  bool _emergencySent = false;
   List<Emergency> _activeEmergencies = [];
   EmergencyStats? _stats;
 
@@ -79,7 +78,6 @@ class _SosScreenState extends State<SosScreen> {
       final emergency = await _sosService.createSOS(request);
 
       setState(() {
-        _emergencySent = true;
         _activeEmergencies.insert(0, emergency);
       });
 
@@ -94,21 +92,6 @@ class _SosScreenState extends State<SosScreen> {
     }
   }
 
-  Future<void> _registerAsVolunteer(int emergencyId) async {
-    try {
-      final request = RegisterVolunteerRequest(
-        userId: widget.user.id,
-        userName: widget.user.name ?? 'Anonymous',
-        skills: 'Pertolongan pertama',
-      );
-
-      await _sosService.registerVolunteer(emergencyId, request);
-      _showSuccessSnackbar('Berhasil mendaftar sebagai relawan!');
-      _loadActiveEmergencies();
-    } catch (e) {
-      _showErrorSnackbar('Gagal mendaftar sebagai relawan: $e');
-    }
-  }
 
   void _showEmergencyDialog(BuildContext context, String type) {
     showDialog(
@@ -160,7 +143,7 @@ class _SosScreenState extends State<SosScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : const Text('Kirim SOS'),
+                : const Text('Kirim SOS' , style: TextStyle(color: Colors.white),),
           ),
         ],
       ),
@@ -225,56 +208,6 @@ class _SosScreenState extends State<SosScreen> {
     );
   }
 
-  Widget _buildEmergencyItem(Emergency emergency) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.red.shade50,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.emergency, color: Colors.red, size: 20),
-        ),
-        title: Text(
-          emergency.type,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(emergency.details ?? 'Tidak ada deskripsi'),
-            const SizedBox(height: 4),
-            Text(
-              'Lokasi: ${emergency.location ?? 'Tidak diketahui'}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            if (emergency.needVolunteer)
-              Text(
-                'Butuh ${emergency.volunteerCount} relawan',
-                style: TextStyle(
-                  color: Colors.orange.shade700,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-          ],
-        ),
-        trailing: emergency.needVolunteer
-            ? ElevatedButton(
-                onPressed: () => _registerAsVolunteer(emergency.id),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-                child: const Text('Daftar'),
-              )
-            : null,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {

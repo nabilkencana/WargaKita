@@ -1,12 +1,14 @@
-// home_screen.dart
+// home_screen.dart - PERBARUI bagian initState dan tambahkan auth check
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/announcement_model.dart';
 import '../services/announcement_service.dart';
+import '../services/auth_service.dart'; // TAMBAHKAN INI
 import 'sos_screen.dart';
 import 'laporan_screen.dart';
 import 'profile_screen.dart';
-import 'dana_screen.dart'; // Pastikan buat screen Dana
+import 'dana_screen.dart';
+import 'login_screen.dart'; // TAMBAHKAN UNTUK LOGOUT
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -24,29 +26,222 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
-  int _unreadNotifications = 3; // Counter notifikasi yang belum dibaca
-  List<Map<String, dynamic>> _notifications = []; // Daftar notifikasi
+  int _unreadNotifications = 3;
+  List<Map<String, dynamic>> _notifications = [];
 
-  // Daftar screen untuk bottom navigation
-  final List<Widget> _screens = [];
+  // TAMBAHKAN: Flag untuk auth check
+  bool _isCheckingAuth = true;
+  bool _isAuthenticated = false;
 
   @override
   void initState() {
     super.initState();
-    _announcementsFuture = AnnouncementService.getAnnouncements();
+    _checkAuthentication(); // PERTAMA, CEK AUTH
     _initializeNotifications();
+    _announcementsFuture = AnnouncementService.getAnnouncements();
+  }
 
-    // Inisialisasi screens
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+  // TAMBAHKAN: Fungsi untuk cek authentication
+  Future<void> _checkAuthentication() async {
+    setState(() => _isCheckingAuth = true);
+
+    try {
+      // 1. Cek token
+      final token = await AuthService.getToken();
+      print('🔍 Checking auth in HomeScreen:');
+      print('   Token exists: ${token != null}');
+      print('   Token length: ${token?.length}');
+
+      // 2. Cek user data
+      final storedUser = await AuthService.getUser();
+      print('   Stored user: ${storedUser?.email}');
+      print('   Widget user: ${widget.user.email}');
+
+      if (token == null || token.isEmpty) {
+        print('❌ No token found, redirecting to login...');
+        _redirectToLogin();
+        return;
+      }
+
+      // 3. Validate user consistency
+      if (storedUser == null || storedUser.id != widget.user.id) {
+        print('⚠️ User mismatch, using widget user');
+      }
+
       setState(() {
-        _screens.addAll([
-          _buildHomeContent(),
-          SosScreen(user: widget.user),
-          LaporanScreen(user: widget.user),
-          DanaScreen(user: widget.user), // Ganti Profile dengan Dana
-        ]);
+        _isAuthenticated = true;
+        _isCheckingAuth = false;
       });
+
+      print('✅ Authentication check passed');
+    } catch (e) {
+      print('❌ Auth check error: $e');
+      _redirectToLogin();
+    }
+  }
+
+  // TAMBAHKAN: Fungsi untuk redirect ke login
+  void _redirectToLogin() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
     });
+  }
+
+  // TAMBAHKAN: Fungsi untuk logout
+  Future<void> _logout() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keluar' ),
+        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await AuthService.logout();
+              _redirectToLogin();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Keluar', style: TextStyle(color: Colors.white),),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // MODIFIKASI: Fungsi _showProfile untuk handle logout
+  void _showProfile() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue.shade100,
+                child: Icon(Icons.person, color: Colors.blue.shade700),
+              ),
+              title: Text(
+                widget.user.name ?? 'User',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(widget.user.email),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Pengaturan'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(user: widget.user),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Keluar', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _logout();
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // TAMBAHKAN: Loading saat cek auth
+  Widget _buildAuthChecking() {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 20),
+            Text('Memeriksa autentikasi...'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // TAMBAHKAN: Tampilkan loading jika sedang cek auth
+    if (_isCheckingAuth) {
+      return _buildAuthChecking();
+    }
+
+    // TAMBAHKAN: Tampilkan error jika tidak terautentikasi
+    if (!_isAuthenticated) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, color: Colors.red, size: 64),
+              const SizedBox(height: 20),
+              const Text(
+                'Sesi telah berakhir',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text('Silakan login kembali'),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _redirectToLogin,
+                child: const Text('Login Ulang'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // KODE ASAL YANG SUDAH ADA
+    return Scaffold(
+      body: _currentIndex == 0 ? _buildHomeContent() : _buildOtherScreen(),
+      bottomNavigationBar: _buildBottomNavBar(),
+    );
+  }
+
+  Widget _buildOtherScreen() {
+    switch (_currentIndex) {
+      case 0:
+        return _buildHomeContent();
+      case 1:
+        return SosScreen(user: widget.user);
+      case 2:
+        return LaporanScreen(user: widget.user);
+      case 3:
+        return DanaScreen(user: widget.user);
+      default:
+        return _buildHomeContent();
+    }
   }
 
   // Inisialisasi data notifikasi
@@ -425,12 +620,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Method untuk membuka profile dari header
-  void _showProfile() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ProfileScreen(user: widget.user)),
-    );
-  }
 
   void _joinWorkActivity() {
     showDialog(
@@ -508,14 +697,6 @@ class _HomeScreenState extends State<HomeScreen> {
         duration: const Duration(seconds: 3),
       ),
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final body = _currentIndex == 0
-        ? _buildHomeContent()
-        : _screens[_currentIndex];
-    return Scaffold(body: body, bottomNavigationBar: _buildBottomNavBar());
   }
 
   Widget _buildLoadingState() {
@@ -1270,6 +1451,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 
   Widget _buildEmptySearchResults() {
     return Container(

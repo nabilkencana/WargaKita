@@ -2,7 +2,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/transaction_model.dart';
-import '../models/user_model.dart';
 
 class TransactionService {
   static const String baseUrl = 'https://wargakita.canadev.my.id';
