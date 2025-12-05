@@ -38,7 +38,7 @@ class LaporanService {
   static Future<Laporan> getLaporanById(int id) async {
     final response = await http.get(Uri.parse('$baseUrl/$id'));
 
-    if (response.statusCode == 200) {
+    if (response.statusCode.toString().startsWith('2')) {
       return Laporan.fromJson(json.decode(response.body));
     } else {
       throw Exception('Laporan tidak ditemukan');

@@ -6,7 +6,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_latihan1/services/auth_service.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
 import '../models/user_model.dart';
 import 'package:http/http.dart' as http;
 
@@ -356,32 +358,26 @@ class _LaporanScreenState extends State<LaporanScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          style: const TextStyle(fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.all(16),
+            prefixIcon: Icon(icon, color: Colors.green.shade600, size: 20),
           ),
-          child: TextFormField(
-            controller: controller,
-            maxLines: maxLines,
-            style: const TextStyle(fontSize: 14),
-            decoration: InputDecoration(
-              hintText: hintText,
-              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(16),
-              prefixIcon: Icon(icon, color: Colors.green.shade600, size: 20),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Field ini harus diisi';
-              }
-              if (value.length < 10) {
-                return 'Minimal 10 karakter';
-              }
-              return null;
-            },
-          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Field ini harus diisi';
+            }
+            if (value.length < 10) {
+              return 'Minimal 10 karakter';
+            }
+            return null;
+          },
         ),
       ],
     );
@@ -775,119 +771,208 @@ class _LaporanScreenState extends State<LaporanScreen> {
   void _submitLaporan() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-      _uploadProgress = 0.0;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      String? imageUrl;
-      String? imagePublicId;
-
-      // 1. Upload ke Cloudinary jika ada gambar
-      if (_imageFile != null || _imageBytes != null) {
-        final cloudinaryResult = await _uploadToCloudinary();
-
-        if (cloudinaryResult['success'] == true) {
-          imageUrl = cloudinaryResult['url'] as String;
-          imagePublicId = cloudinaryResult['public_id'] as String;
-          print('✅ Gambar berhasil diupload ke Cloudinary: $imageUrl');
-        } else {
-          print('⚠️ Gagal upload gambar: ${cloudinaryResult['error']}');
-          _showWarningDialog(
-            'Upload gambar gagal',
-            'Laporan akan dikirim tanpa gambar. ${cloudinaryResult['error']}',
-          );
-        }
-      }
-
-      // 2. Dapatkan token dari AuthService
       final String? token = await AuthService.getToken();
-
-      if (token == null || token.isEmpty) {
+      if (token == null) {
         _showSessionExpiredDialog();
-        setState(() => _isLoading = false);
         return;
       }
 
-      print('🔑 Token yang digunakan: ${token.substring(0, 20)}...');
+      print('🔑 Token: ${token.substring(0, 20)}...');
 
-      // 3. Prepare headers dengan token
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
+      // Buat multipart request
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('https://wargakita.canadev.my.id/reports'),
+      );
 
-      // 4. Prepare data sesuai dengan backend expectations
-      final Map<String, dynamic> reportData = {
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Tambahkan fields
+      request.fields.addAll({
         'title': _judulController.text,
         'description': _deskripsiController.text,
         'category': _selectedKategori,
-        'userId': widget.user.id, // Pastikan ini integer
-        'status': 'PENDING',
-      };
+        'userId': widget.user.id.toString(),
+      });
 
-      // Tambahkan image data jika ada
-      if (imageUrl != null) {
-        reportData['imageUrl'] = imageUrl;
-        reportData['imagePublicId'] = imagePublicId;
+      // Handle image upload dengan MIME type yang benar
+      if (_imageFile != null || _imageBytes != null) {
+        await _addImageToRequest(request);
       }
 
-      print('📤 Mengirim laporan ke backend...');
-      print('URL: $_backendUrl');
-      print('Data: ${jsonEncode(reportData)}');
+      print('📤 Sending to: ${request.url}');
 
-      // 5. Kirim ke backend dengan timeout
-      final response = await http
-          .post(
-            Uri.parse(_backendUrl),
-            headers: headers,
-            body: jsonEncode(reportData),
-          )
-          .timeout(const Duration(seconds: 30));
+      // Kirim request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
-      print('📥 Response Status: ${response.statusCode}');
-      print('Response Body: ${response.body}');
+      print('📥 Status: ${response.statusCode}');
+      print('Response: ${response.body}');
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
+      // Handle response
+      if (response.statusCode.toString().startsWith('2')) {
         final responseData = jsonDecode(response.body);
-        print('✅ Laporan berhasil dibuat dengan ID: ${responseData['id']}');
+
+        print('✅ Success! ID: ${responseData['id']}');
+        print('📸 Image URL: ${responseData['imageUrl']}');
 
         _showSuccessDialog(
-          imageUrl: imageUrl,
+          imageUrl: responseData['imageUrl'],
           reportId: responseData['id']?.toString() ?? '-',
         );
-      } else if (response.statusCode == 401) {
-        // Token expired atau tidak valid
-        await AuthService.logout();
-        _showSessionExpiredDialog();
-      } else if (response.statusCode == 400) {
-        // Bad request - cek data yang dikirim
-        final errorData = jsonDecode(response.body);
-        final errorMessage = errorData['message'] ?? 'Data tidak valid';
-        _showErrorDialog("Validasi gagal: $errorMessage");
+
+        _clearForm();
       } else {
         final errorData = jsonDecode(response.body);
-        final errorMessage = errorData['message'] ?? 'Unknown error';
+        final errorMessage =
+            errorData['message'] ?? 'Error ${response.statusCode}';
         _showErrorDialog(
-          "Gagal mengirim laporan (${response.statusCode}):\n$errorMessage",
+          "Backend error: $errorMessage\n\nPastikan file gambar valid (JPG, PNG, GIF).",
         );
       }
-    } on TimeoutException {
-      _showErrorDialog("Timeout - Server tidak merespons. Coba lagi nanti.");
-    } on http.ClientException catch (e) {
-      _showErrorDialog("Koneksi internet bermasalah: ${e.message}");
     } catch (e) {
-      print('❌ Exception saat submit: $e');
-      _showErrorDialog("Terjadi kesalahan: ${e.toString()}");
+      print('❌ Error: $e');
+      _showErrorDialog("Gagal mengirim: ${e.toString()}");
     } finally {
-      setState(() {
-        _isLoading = false;
-        _uploadProgress = 0.0;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
+
+  Future<void> _addImageToRequest(http.MultipartRequest request) async {
+    try {
+      String filePath = '';
+      List<int>? fileBytes;
+      String? mimeType;
+      String extension = 'jpg';
+
+      // Deteksi file source
+      if (_imageFile != null) {
+        filePath = _imageFile!.path;
+        fileBytes = await _imageFile!.readAsBytes();
+      } else if (_imageBytes != null) {
+        fileBytes = _imageBytes!;
+        filePath = 'web_upload_${DateTime.now().millisecondsSinceEpoch}';
+      }
+
+      if (fileBytes == null || fileBytes.isEmpty) {
+        print('⚠️ No image bytes available');
+        return;
+      }
+
+      // Deteksi MIME type menggunakan package mime
+      mimeType = lookupMimeType(filePath, headerBytes: fileBytes);
+      print('🔍 Detected MIME type: $mimeType');
+      print('📁 File path/name: $filePath');
+
+      // Jika mimeType tidak terdeteksi, coba deteksi manual
+      if (mimeType == null || mimeType.isEmpty) {
+        mimeType = _detectMimeTypeManually(fileBytes);
+        print('🔍 Manual MIME detection: $mimeType');
+      }
+
+      // Set extension berdasarkan MIME type
+      if (mimeType == 'image/png') {
+        extension = 'png';
+      } else if (mimeType == 'image/jpeg') {
+        extension = 'jpg';
+      } else if (mimeType == 'image/gif') {
+        extension = 'gif';
+      }
+
+      // Validasi MIME type sesuai backend requirements
+      final allowedMimeTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/jpg',
+        'image/gif',
+      ];
+      if (!allowedMimeTypes.contains(mimeType)) {
+        print('❌ Unsupported MIME type: $mimeType');
+        _showWarningDialog(
+          'Format file tidak didukung',
+          'File memiliki tipe: $mimeType\nBackend hanya menerima: JPG, PNG, GIF',
+        );
+        return;
+      }
+
+      // Split mimeType untuk MediaType
+      final mimeParts = mimeType?.split('/');
+      if (mimeParts?.length != 2) {
+        print('❌ Invalid MIME type format: $mimeType');
+        return;
+      }
+
+      final contentType = MediaType(mimeParts![0], mimeParts[1]);
+      final filename =
+          'report_${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+      print('📁 Final filename: $filename');
+      print('📁 Content-Type: $contentType');
+
+      // Tambahkan file ke request
+      if (_imageFile != null) {
+        // Dari file path
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'imageFile',
+            _imageFile!.path,
+            filename: filename,
+            contentType: contentType,
+          ),
+        );
+      } else {
+        // Dari bytes (web)
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'imageFile',
+            fileBytes!,
+            filename: filename,
+            contentType: contentType,
+          ),
+        );
+      }
+
+      print('✅ Image added to request');
+    } catch (e) {
+      print('❌ Error adding image: $e');
+      _showWarningDialog(
+        'Error proses gambar',
+        'Gagal memproses gambar: $e\nLaporan akan dikirim tanpa gambar.',
+      );
+    }
+  }
+
+  String? _detectMimeTypeManually(List<int> bytes) {
+    if (bytes.length < 4) return null;
+
+    // PNG signature: 89 50 4E 47
+    if (bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return 'image/png';
+    }
+
+    // JPEG signature: FF D8 FF
+    if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+      return 'image/jpeg';
+    }
+
+    // GIF signature: GIF87a or GIF89a
+    if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) {
+      return 'image/gif';
+    }
+
+    return null;
+  }
+
+  // HAPUS fungsi _uploadToCloudinary() karena tidak digunakan lagi
+  // atau bisa dijadikan backup plan
 
   // Fungsi untuk handle session expired
   void _showSessionExpiredDialog() {
@@ -955,9 +1040,9 @@ class _LaporanScreenState extends State<LaporanScreen> {
       if (kIsWeb) {
         request.files.add(
           http.MultipartFile.fromBytes(
-            'file',
+            'imageFile',
             _imageBytes!,
-            filename: 'laporan_${DateTime.now().millisecondsSinceEpoch}.jpg',
+            filename: 'report_${DateTime.now().millisecondsSinceEpoch}.jpg',
           ),
         );
       } else {
@@ -988,7 +1073,7 @@ class _LaporanScreenState extends State<LaporanScreen> {
       final responseData = utf8.decode(bytes);
       final jsonResponse = jsonDecode(responseData);
 
-      if (streamedResponse.statusCode == 200) {
+      if (streamedResponse.statusCode.toString().startsWith('2')) {
         return {
           'success': true,
           'url': jsonResponse['secure_url'],

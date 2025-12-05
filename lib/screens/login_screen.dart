@@ -637,10 +637,10 @@ class _LoginScreenState extends State<LoginScreen>
             borderRadius: _inputBorderRadius,
             border: Border.all(
               color: _emailFocusNode.hasFocus
-                  ? _primaryColor.withOpacity(0.8)
+                  ? _primaryColor.withOpacity(0)
                   : _isEmailValid && _emailController.text.isNotEmpty
                   ? Colors.green.shade400
-                  : Colors.grey.shade300,
+                  : Colors.white,
               width: _emailFocusNode.hasFocus ? 2.5 : 1.5,
             ),
             boxShadow: _emailFocusNode.hasFocus
@@ -668,10 +668,10 @@ class _LoginScreenState extends State<LoginScreen>
               border: InputBorder.none,
               // FIX: Tambahkan constraints pada placeholder
               constraints: const BoxConstraints(
-                minHeight: 56, // Sesuaikan dengan tinggi TextField
+                minHeight: 51, // Sesuaikan dengan tinggi TextField
               ),
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
+                horizontal: 23,
                 vertical: 18,
               ),
               prefixIcon: Icon(
@@ -934,7 +934,7 @@ class _LoginScreenState extends State<LoginScreen>
                 const Text(
                   'Selamat Datang Di WargaKita',
                   style: TextStyle(
-                    fontSize: 26,
+                    fontSize: 24,
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,

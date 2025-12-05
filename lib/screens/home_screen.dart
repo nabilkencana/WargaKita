@@ -122,57 +122,182 @@ class _HomeScreenState extends State<HomeScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: false,
       builder: (context) => Container(
+        height: 280, // Fixed height untuk lebih rapi
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
           ),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.blue.shade100,
-                child: Icon(Icons.person, color: Colors.blue.shade700),
+            // Drag indicator
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
               ),
-              title: Text(
-                widget.user.name ?? 'User',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(widget.user.email),
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Pengaturan'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProfileScreen(user: widget.user),
+
+            // Header profil
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.blue.shade100,
+                    child: Icon(
+                      Icons.person,
+                      color: Colors.blue.shade700,
+                      size: 30,
+                    ),
                   ),
-                );
-              },
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.user.name ?? 'User',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.user.email,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade100),
+                          ),
+                          child: Text(
+                            widget.user.role?.toUpperCase() ?? 'USER',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.blue.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Keluar', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _logout();
-              },
+
+            const Divider(height: 1, thickness: 1),
+
+            // Menu opsi
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                children: [
+                  _buildProfileMenuItem(
+                    icon: Icons.settings_outlined,
+                    text: 'Pengaturan',
+                    color: Colors.blue.shade600,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ProfileScreen(user: widget.user),
+                        ),
+                      );
+                    },
+                  ),
+
+                  _buildProfileMenuItem(
+                    icon: Icons.help_outline,
+                    text: 'Bantuan & Dukungan',
+                    color: Colors.purple.shade600,
+                    onTap: () {
+                      Navigator.pop(context);
+                      // Navigate to help screen
+                    },
+                  ),
+
+                  _buildProfileMenuItem(
+                    icon: Icons.privacy_tip_outlined,
+                    text: 'Privasi & Keamanan',
+                    color: Colors.green.shade600,
+                    onTap: () {
+                      Navigator.pop(context);
+                      // Navigate to privacy screen
+                    },
+                  ),
+
+                  const Divider(height: 20, thickness: 1),
+
+                  _buildProfileMenuItem(
+                    icon: Icons.logout_rounded,
+                    text: 'Keluar',
+                    color: Colors.red.shade600,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _logout();
+                    },
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildProfileMenuItem({
+    required IconData icon,
+    required String text,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color, size: 22),
+      ),
+      title: Text(
+        text,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: text == 'Keluar' ? Colors.red.shade700 : Colors.grey.shade800,
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    );
+  }
   // TAMBAHKAN: Loading saat cek auth
   Widget _buildAuthChecking() {
     return const Scaffold(
@@ -624,61 +749,152 @@ class _HomeScreenState extends State<HomeScreen> {
   void _joinWorkActivity() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.people_alt_rounded, color: Colors.green),
-            SizedBox(width: 8),
-            Text('Bergabung Kerja Bakti'),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Apakah Anda yakin ingin bergabung dalam kegiatan kerja bakti bersama warga?',
-            ),
-            SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                SizedBox(width: 8),
-                Text('Minggu, 15 Desember 2024'),
-              ],
-            ),
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.access_time, size: 16, color: Colors.grey),
-                SizedBox(width: 8),
-                Text('08.00 - 12.00 WIB'),
-              ],
-            ),
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 16, color: Colors.grey),
-                SizedBox(width: 8),
-                Text('Lapangan RT 05'),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Colors.red),),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.people_alt_rounded,
+                      color: Colors.green.shade700,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Bergabung Kerja Bakti',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Deskripsi
+              const Text(
+                'Apakah Anda yakin ingin bergabung dalam kegiatan kerja bakti bersama warga?',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Detail kegiatan
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildDetailRow(
+                      Icons.calendar_today,
+                      'Minggu, 15 Desember 2024',
+                      Colors.blue,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDetailRow(
+                      Icons.access_time,
+                      '08.00 - 12.00 WIB',
+                      Colors.orange,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDetailRow(
+                      Icons.location_on,
+                      'Lapangan RT 05',
+                      Colors.red,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Tombol aksi
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: Colors.red.shade400),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Batal',
+                        style: TextStyle(
+                          color: Colors.red.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showJoinSuccess();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const Text(
+                        'Ya, Bergabung',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showJoinSuccess();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Ya, Bergabung', style: TextStyle(color: Colors.white),),
-          ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String text, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
+          ),
+        ),
+      ],
     );
   }
 
@@ -813,6 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // === HEADER YANG DIPERBAIKI ===
+  // === HEADER YANG DIPERBAIKI ===
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
@@ -930,7 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          // Search bar yang lebih modern - DIFUNGSIKAN
+          // Search bar yang lebih modern - DIPERBAIKI
           Container(
             height: 50,
             decoration: BoxDecoration(
@@ -953,10 +1170,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: 'Cari pengumuman...',
+                      hintText: 'Cari pengumuman, kegiatan, atau informasi...',
                       border: InputBorder.none,
-                      hintStyle: TextStyle(color: Colors.grey.shade400),
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 14,
+                      ),
                     ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
                     onChanged: _handleSearch,
                   ),
                 ),
@@ -964,29 +1185,132 @@ class _HomeScreenState extends State<HomeScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.clear,
-                      color: Colors.grey.shade400,
-                      size: 18,
+                      color: Colors.grey.shade500,
+                      size: 20,
                     ),
                     onPressed: _clearSearch,
                   )
                 else
-                  Container(
-                    margin: const EdgeInsets.all(6),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.tune,
-                      color: Colors.blue.shade600,
-                      size: 18,
+                  // TOMBOL FILTER YANG DIPERBAIKI
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.filter_list_rounded,
+                          color: Colors.blue.shade600,
+                          size: 18,
+                        ),
+                        onPressed: () {
+                          // Tambahkan fungsi filter di sini
+                          _showFilterOptions();
+                        },
+                        padding: EdgeInsets.zero,
+                      ),
                     ),
                   ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // TAMBAHKAN FUNGSI FILTER (OPTIONAL)
+  void _showFilterOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 300,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Filter Pengumuman',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Kategori',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              // Tambahkan opsi filter di sini
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildFilterChip('Semua', true),
+                  _buildFilterChip('Kegiatan', false),
+                  _buildFilterChip('Informasi', false),
+                  _buildFilterChip('Penting', false),
+                ],
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Terapkan Filter',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, bool isSelected) {
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        // Handle filter selection
+      },
+      selectedColor: Colors.blue.shade100,
+      checkmarkColor: Colors.blue,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.blue.shade700 : Colors.grey.shade700,
       ),
     );
   }
